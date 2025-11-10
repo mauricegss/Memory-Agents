@@ -8,7 +8,7 @@ class AgenteQLearning(Agente):
         self.q_table = {} 
         self.learning_rate = 0.1 
         self.discount_factor = 0.9
-        self.epsilon = 0.1 
+        self.epsilon = 0.25
     
     def get_q_value(self, jogada):
         if jogada[0] > jogada[1]:

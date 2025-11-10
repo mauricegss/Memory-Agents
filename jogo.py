@@ -79,7 +79,7 @@ class JogoDaMemoria:
         
         # 2. Re-treinar o agente Q-Learning global para este gabarito
         self.agente_q_learning_global.q_table = {} # Limpa a memória anterior
-        pre_treinar_agente_ql(self.agente_q_learning_global, self.valores_cartas, 500)
+        pre_treinar_agente_ql(self.agente_q_learning_global, self.valores_cartas, 100)
         
         print("Treinamento de IAs para esta rodada concluído.")
         
@@ -127,9 +127,9 @@ class JogoDaMemoria:
             return AgenteComMemoria(nome_jogador)
             
         # MUDANÇA AQUI: Passa os dados de treino ATUAIS
-        if tipo == "Agente MLP (Estático)":
+        if tipo == "Agente MLP":
             return AgenteMLP(nome_jogador, self.X_treino_atual, self.y_treino_atual)
-        if tipo == "Agente KNN (Estático)":
+        if tipo == "Agente KNN":
             return AgenteKNN(nome_jogador, self.X_treino_atual, self.y_treino_atual)
             
         if tipo == "Agente Q-Learning":
@@ -172,8 +172,8 @@ class JogoDaMemoria:
         self.btn_p1_humano = self.desenhar_botao(self.tela, "Humano", 50, 190, self.tipo_agentes["P1"] == "Humano")
         self.btn_p1_random = self.desenhar_botao(self.tela, "Ag. Aleatório", 50, 240, self.tipo_agentes["P1"] == "Agente Aleatório")
         self.btn_p1_memoria = self.desenhar_botao(self.tela, "Ag. com Memória", 50, 290, self.tipo_agentes["P1"] == "Agente com Memória")
-        self.btn_p1_mlp = self.desenhar_botao(self.tela, "Ag. MLP (Estático)", 50, 340, self.tipo_agentes["P1"] == "Agente MLP (Estático)")
-        self.btn_p1_knn = self.desenhar_botao(self.tela, "Ag. KNN (Estático)", 50, 390, self.tipo_agentes["P1"] == "Agente KNN (Estático)")
+        self.btn_p1_mlp = self.desenhar_botao(self.tela, "Ag. MLP", 50, 340, self.tipo_agentes["P1"] == "Agente MLP")
+        self.btn_p1_knn = self.desenhar_botao(self.tela, "Ag. KNN", 50, 390, self.tipo_agentes["P1"] == "Agente KNN")
         self.btn_p1_ql = self.desenhar_botao(self.tela, "Ag. Q-Learning", 50, 440, self.tipo_agentes["P1"] == "Agente Q-Learning")
 
         # --- Seleção P2 (Direita) ---
@@ -182,8 +182,8 @@ class JogoDaMemoria:
         self.btn_p2_humano = self.desenhar_botao(self.tela, "Humano", 500, 190, self.tipo_agentes["P2"] == "Humano")
         self.btn_p2_random = self.desenhar_botao(self.tela, "Ag. Aleatório", 500, 240, self.tipo_agentes["P2"] == "Agente Aleatório")
         self.btn_p2_memoria = self.desenhar_botao(self.tela, "Ag. com Memória", 500, 290, self.tipo_agentes["P2"] == "Agente com Memória")
-        self.btn_p2_mlp = self.desenhar_botao(self.tela, "Ag. MLP (Estático)", 500, 340, self.tipo_agentes["P2"] == "Agente MLP (Estático)")
-        self.btn_p2_knn = self.desenhar_botao(self.tela, "Ag. KNN (Estático)", 500, 390, self.tipo_agentes["P2"] == "Agente KNN (Estático)")
+        self.btn_p2_mlp = self.desenhar_botao(self.tela, "Ag. MLP", 500, 340, self.tipo_agentes["P2"] == "Agente MLP")
+        self.btn_p2_knn = self.desenhar_botao(self.tela, "Ag. KNN", 500, 390, self.tipo_agentes["P2"] == "Agente KNN")
         self.btn_p2_ql = self.desenhar_botao(self.tela, "Ag. Q-Learning", 500, 440, self.tipo_agentes["P2"] == "Agente Q-Learning")
 
         # --- Iniciar ---
@@ -213,16 +213,16 @@ class JogoDaMemoria:
                 if self.btn_p1_humano.collidepoint(pos_mouse): self.tipo_agentes["P1"] = "Humano"
                 if self.btn_p1_random.collidepoint(pos_mouse): self.tipo_agentes["P1"] = "Agente Aleatório"
                 if self.btn_p1_memoria.collidepoint(pos_mouse): self.tipo_agentes["P1"] = "Agente com Memória"
-                if self.btn_p1_mlp.collidepoint(pos_mouse): self.tipo_agentes["P1"] = "Agente MLP (Estático)"
-                if self.btn_p1_knn.collidepoint(pos_mouse): self.tipo_agentes["P1"] = "Agente KNN (Estático)"
+                if self.btn_p1_mlp.collidepoint(pos_mouse): self.tipo_agentes["P1"] = "Agente MLP"
+                if self.btn_p1_knn.collidepoint(pos_mouse): self.tipo_agentes["P1"] = "Agente KNN"
                 if self.btn_p1_ql.collidepoint(pos_mouse): self.tipo_agentes["P1"] = "Agente Q-Learning"
                 
                 # Botões P2
                 if self.btn_p2_humano.collidepoint(pos_mouse): self.tipo_agentes["P2"] = "Humano"
                 if self.btn_p2_random.collidepoint(pos_mouse): self.tipo_agentes["P2"] = "Agente Aleatório"
                 if self.btn_p2_memoria.collidepoint(pos_mouse): self.tipo_agentes["P2"] = "Agente com Memória"
-                if self.btn_p2_mlp.collidepoint(pos_mouse): self.tipo_agentes["P2"] = "Agente MLP (Estático)"
-                if self.btn_p2_knn.collidepoint(pos_mouse): self.tipo_agentes["P2"] = "Agente KNN (Estático)"
+                if self.btn_p2_mlp.collidepoint(pos_mouse): self.tipo_agentes["P2"] = "Agente MLP"
+                if self.btn_p2_knn.collidepoint(pos_mouse): self.tipo_agentes["P2"] = "Agente KNN"
                 if self.btn_p2_ql.collidepoint(pos_mouse): self.tipo_agentes["P2"] = "Agente Q-Learning"
 
                 # Botão Iniciar
@@ -254,8 +254,8 @@ class JogoDaMemoria:
         if tipo == "Humano": return COR_HUMANO, "Humano"
         if tipo == "Agente Aleatório": return COR_IA_RANDOM, "Ag. Aleatório"
         if tipo == "Agente com Memória": return COR_IA_MEMORIA, "Ag. Memória"
-        if tipo == "Agente MLP (Estático)": return COR_IA_SUPERV, "Ag. MLP"
-        if tipo == "Agente KNN (Estático)": return COR_IA_SUPERV, "Ag. KNN"
+        if tipo == "Agente MLP": return COR_IA_SUPERV, "Ag. MLP"
+        if tipo == "Agente KNN": return COR_IA_SUPERV, "Ag. KNN"
         if tipo == "Agente Q-Learning": return COR_IA_QL, "Ag. Q-Learning"
         return COR_BRANCA, "Desconhecido"
 
