@@ -45,7 +45,6 @@ class JogoDaMemoria:
             "P1": "Humano",
             "P2": "Agente com Memória"
         }
-        self.modo_tabuleiro = "Aleatório" # "Aleatório" ou "Fixo"
         
         self.jogador_atual = "P1"
         self.selecionadas = []
@@ -53,47 +52,51 @@ class JogoDaMemoria:
         self.pontos = {"P1": 0, "P2": 0}
         self.valores_cartas = [] # Armazena os valores do tabuleiro atual
         
-        # Dados de treino para agentes estáticos
-        self.X_treino_fixo, self.y_treino_fixo = gerar_dados_treino(TABULEIRO_FIXO)
+        # Dados de treino agora são dinâmicos
+        self.X_treino_atual = None
+        self.y_treino_atual = None
         
-        # Agente Q-Learning precisa persistir entre jogos
+        # Agente Q-Learning precisa persistir, mas será treinado dinamicamente
         self.agente_q_learning_global = AgenteQLearning("Global")
-        # Pre-treina o agente QL para ele já saber o básico do gabarito
-        pre_treinar_agente_ql(self.agente_q_learning_global, TABULEIRO_FIXO, 500)
 
     # --- FUNÇÃO ATUALIZADA PARA O GRID 4x4 ---
     def iniciar_novo_jogo(self):
         
-        if self.modo_tabuleiro == "Aleatório":
-            self.valores_cartas = []
-            # Esta parte já é dinâmica, pois usa N_CARTAS (16)
-            for i in range(1, (N_CARTAS // 2) + 1): # Vai de 1 a 8
-                self.valores_cartas.append(i)
-                self.valores_cartas.append(i)
-            random.shuffle(self.valores_cartas)
-        else:
-            # Esta parte usa o TABULEIRO_FIXO de 16 cartas
-            self.valores_cartas = TABULEIRO_FIXO
+        # --- ETAPA 1: Gerar tabuleiro aleatório ---
+        # Esta parte agora é padrão, não mais uma "opção"
+        self.valores_cartas = []
+        for i in range(1, (N_CARTAS // 2) + 1): # Vai de 1 a 8
+            self.valores_cartas.append(i)
+            self.valores_cartas.append(i)
+        random.shuffle(self.valores_cartas)
         
+        
+        # --- ETAPA 2: (RE)TREINAR IAs NESTE TABULEIRO ---
+        print(f"Gerando tabuleiro e (re)treinando IAs (MLP, KNN, QL)...")
+        
+        # 1. Gerar os dados de treino para este tabuleiro específico
+        self.X_treino_atual, self.y_treino_atual = gerar_dados_treino(self.valores_cartas)
+        
+        # 2. Re-treinar o agente Q-Learning global para este gabarito
+        self.agente_q_learning_global.q_table = {} # Limpa a memória anterior
+        pre_treinar_agente_ql(self.agente_q_learning_global, self.valores_cartas, 500)
+        
+        print("Treinamento de IAs para esta rodada concluído.")
+        
+        # --- ETAPA 3: Configurar o layout e estado do jogo (como antes) ---
         self.cartas = []
         espacamento = 10
         
-        # --- LÓGICA DE LAYOUT ATUALIZADA ---
-        # Define o tamanho da carta (pode mudar se quiser)
         largura_carta = 100
         altura_carta = 140
         
-        # Calcula o tamanho total do grid dinamicamente
         largura_total_cartas = (largura_carta * N_COLUNAS) + (espacamento * (N_COLUNAS - 1))
         altura_total_cartas = (altura_carta * N_LINHAS) + (espacamento * (N_LINHAS - 1))
         
-        # Centraliza o grid na tela
         x_inicio = (LARGURA_TELA - largura_total_cartas) / 2
         y_inicio = (ALTURA_TELA - altura_total_cartas - 50) / 2 # Sobe um pouco
         
         for i in range(N_CARTAS):
-            # --- CÁLCULO DE LINHA/COLUNA ATUALIZADO ---
-            # Usa N_COLUNAS (4) em vez de '5'
             linha = i // N_COLUNAS 
             coluna = i % N_COLUNAS
             
@@ -102,7 +105,7 @@ class JogoDaMemoria:
             nova_carta = Carta(x, y, largura_carta, altura_carta, self.valores_cartas[i])
             self.cartas.append(nova_carta)
 
-        # Configurar agentes (esta parte não muda)
+        # Configurar agentes
         self.agentes = {
             "P1": self.criar_agente(self.tipo_agentes["P1"], "P1"),
             "P2": self.criar_agente(self.tipo_agentes["P2"], "P2")
@@ -122,12 +125,15 @@ class JogoDaMemoria:
             return AgenteAleatorio(nome_jogador)
         if tipo == "Agente com Memória":
             return AgenteComMemoria(nome_jogador)
+            
+        # MUDANÇA AQUI: Passa os dados de treino ATUAIS
         if tipo == "Agente MLP (Estático)":
-            return AgenteMLP(nome_jogador, self.X_treino_fixo, self.y_treino_fixo)
+            return AgenteMLP(nome_jogador, self.X_treino_atual, self.y_treino_atual)
         if tipo == "Agente KNN (Estático)":
-            return AgenteKNN(nome_jogador, self.X_treino_fixo, self.y_treino_fixo)
+            return AgenteKNN(nome_jogador, self.X_treino_atual, self.y_treino_atual)
+            
         if tipo == "Agente Q-Learning":
-            # Usa o agente global pré-treinado
+            # Usa o agente global pré-treinado (agora treinado no tabuleiro atual)
             return self.agente_q_learning_global 
         
         return AgenteHumano(nome_jogador)
@@ -180,9 +186,8 @@ class JogoDaMemoria:
         self.btn_p2_knn = self.desenhar_botao(self.tela, "Ag. KNN (Estático)", 500, 390, self.tipo_agentes["P2"] == "Agente KNN (Estático)")
         self.btn_p2_ql = self.desenhar_botao(self.tela, "Ag. Q-Learning", 500, 440, self.tipo_agentes["P2"] == "Agente Q-Learning")
 
-        # --- Modo de Jogo e Iniciar ---
-        self.btn_modo = self.desenhar_botao(self.tela, f"Modo: {self.modo_tabuleiro}", LARGURA_TELA/2 - 125, 520, False, (250, 40))
-        self.btn_iniciar = self.desenhar_botao(self.tela, "INICIAR JOGO", LARGURA_TELA/2 - 125, 580, True, (250, 50))
+        # --- Iniciar ---
+        self.btn_iniciar = self.desenhar_botao(self.tela, "INICIAR JOGO", LARGURA_TELA/2 - 125, 520, True, (250, 50))
 
 
     def desenhar_botao(self, tela, texto, x, y, ativo, tamanho=(250, 40)):
@@ -220,10 +225,6 @@ class JogoDaMemoria:
                 if self.btn_p2_knn.collidepoint(pos_mouse): self.tipo_agentes["P2"] = "Agente KNN (Estático)"
                 if self.btn_p2_ql.collidepoint(pos_mouse): self.tipo_agentes["P2"] = "Agente Q-Learning"
 
-                # Botão Modo
-                if self.btn_modo.collidepoint(pos_mouse):
-                    self.modo_tabuleiro = "Fixo" if self.modo_tabuleiro == "Aleatório" else "Aleatório"
-
                 # Botão Iniciar
                 if self.btn_iniciar.collidepoint(pos_mouse):
                     self.iniciar_novo_jogo()
@@ -248,10 +249,6 @@ class JogoDaMemoria:
         # Placar P2
         cor_p2, nome_p2 = self.get_info_agente(self.tipo_agentes["P2"])
         self.desenhar_placar("P2", nome_p2, cor_p2, (LARGURA_TELA - 20, 20), (LARGURA_TELA - 20, 50), "direita")
-        
-        # Modo de Jogo
-        texto_modo = self.fonte_pequena.render(f"Modo: {self.modo_tabuleiro}", True, COR_BRANCA)
-        self.tela.blit(texto_modo, (LARGURA_TELA/2 - texto_modo.get_width()/2, 20))
 
     def get_info_agente(self, tipo):
         if tipo == "Humano": return COR_HUMANO, "Humano"
