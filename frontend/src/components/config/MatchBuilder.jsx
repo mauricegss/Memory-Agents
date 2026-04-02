@@ -8,27 +8,72 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
   // Helper para gerar IDs únicos locais
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
-  // Upload simulado de múltiplas imagens (Modo Galeria/Bulk) com Compressão
+  // Upload em massa inteligente com preenchimento de slots
   const handleBulkImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    const newPairs = [];
+    // Processar todas as imagens em blobs/urls primeiro
+    const processedImages = [];
     for (const file of files) {
       try {
         const compressedBlob = await compressImage(file, 512, 0.85);
         const url = URL.createObjectURL(compressedBlob);
-        newPairs.push({
-          id: generateId(),
-          item1: { type: 'image', content: url },
-          item2: { type: matchType === 'image_image_same' ? 'image' : 'empty', content: matchType === 'image_image_same' ? url : '' }
-        });
+        processedImages.push(url);
       } catch (err) {
         console.error("Erro ao comprimir imagem bulk:", err);
       }
     }
 
-    setPairs([...pairs, ...newPairs]);
+    let updatedPairs = [...pairs.map(p => ({ ...p, item1: { ...p.item1 }, item2: { ...p.item2 } }))];
+    
+    const defaultType1 = matchType.startsWith('image') ? 'image' : 'text';
+    const defaultType2 = matchType.endsWith('text') || matchType === 'text_text' ? 'text' : 'image';
+
+    for (const url of processedImages) {
+      let placed = false;
+
+      // Tratamento especial para image_image_same (preenche ambos os slots juntos)
+      if (matchType === 'image_image_same') {
+        const targetPair = updatedPairs.find(p => (p.item1.type === 'image' || p.item1.type === 'empty') && !p.item1.content);
+        if (targetPair) {
+          targetPair.item1 = { type: 'image', content: url };
+          targetPair.item2 = { type: 'image', content: url };
+          placed = true;
+        }
+      } else {
+        // Preenche sequencialmente os slots de imagens vazios
+        for (const pair of updatedPairs) {
+          if (!placed && (pair.item1.type === 'image' || pair.item1.type === 'empty') && !pair.item1.content && defaultType1 === 'image') {
+            pair.item1 = { type: 'image', content: url };
+            placed = true;
+          }
+          if (!placed && (pair.item2.type === 'image' || pair.item2.type === 'empty') && !pair.item2.content && defaultType2 === 'image') {
+            pair.item2 = { type: 'image', content: url };
+            placed = true;
+          }
+        }
+      }
+
+      // Se não havia espaços vazios, cria um novo par estruturado
+      if (!placed) {
+        if (matchType === 'image_image_same') {
+          updatedPairs.push({
+            id: generateId(),
+            item1: { type: 'image', content: url },
+            item2: { type: 'image', content: url }
+          });
+        } else {
+          updatedPairs.push({
+            id: generateId(),
+            item1: { type: defaultType1, content: defaultType1 === 'image' ? url : '' },
+            item2: { type: defaultType2, content: defaultType1 !== 'image' && defaultType2 === 'image' ? url : '' }
+          });
+        }
+      }
+    }
+
+    setPairs(updatedPairs);
   };
 
   // Upload para um slot específico de um par com Compressão
@@ -101,6 +146,16 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
       return;
     }
 
+    const defaultType1 = matchType.startsWith('image') ? 'image' : 'text';
+    const defaultType2 = matchType.endsWith('text') || matchType === 'text_text' ? 'text' : 'image';
+    
+    // Validar se o tipo pode ir para o slot
+    const isValidType = (itemType, tSlot) => {
+      if (itemType === 'empty') return true;
+      const expectedType = tSlot === 1 ? defaultType1 : defaultType2;
+      return itemType === expectedType;
+    };
+
     // Criar cópia profunda do array de pares
     const updated = pairs.map(p => ({
       ...p,
@@ -114,6 +169,13 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
     if (pSource && pTarget) {
       const itemSource = sourceSlotIndex === 1 ? { ...pSource.item1 } : { ...pSource.item2 };
       const itemTarget = targetSlotIndex === 1 ? { ...pTarget.item1 } : { ...pTarget.item2 };
+
+      // Swap validation
+      if (!isValidType(itemSource.type, targetSlotIndex) || !isValidType(itemTarget.type, sourceSlotIndex)) {
+        alert('Troca inválida: este slot não permite esse formato.');
+        setDraggedItem(null);
+        return;
+      }
 
       // Swap
       if (sourceSlotIndex === 1) pSource.item1 = itemTarget; 
@@ -143,7 +205,7 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
     };
 
     if (matchType === 'image_image_same' && slotIndex === 2) {
-       return <div className="flex-1 flex items-center justify-center p-4 bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl relative overflow-hidden group">
+       return <div className="flex-1 flex items-center justify-center p-4 bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl relative overflow-hidden group aspect-square">
          <img src={pair.item1.content} alt="Cópia" className="absolute inset-0 w-full h-full object-contain p-2 opacity-50 grayscale" />
          <div className="z-10 bg-slate-900/80 px-3 py-1 rounded-lg text-xs font-bold text-slate-300 backdrop-blur-sm shadow-black">Cópia Automática</div>
        </div>;
@@ -152,7 +214,7 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
     if (isText) {
       return (
         <div 
-          className={`flex-1 flex flex-col gap-2 relative transition-all ${isDraggingThis ? 'opacity-50 scale-95 border-indigo-500' : ''}`}
+          className={`flex-1 flex flex-col gap-2 relative transition-all ${isDraggingThis ? 'opacity-50 scale-95 border-indigo-500' : ''} aspect-square`}
           {...dragHandlers}
         >
            <textarea 
@@ -171,10 +233,10 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
     if (isImage || item.type === 'empty') {
       return (
         <div 
-          className={`flex-1 h-full transition-all ${isDraggingThis ? 'opacity-50 scale-95' : ''}`}
+          className={`flex-1 aspect-square transition-all ${isDraggingThis ? 'opacity-50 scale-95' : ''}`}
           {...dragHandlers}
         >
-          <label className={`block w-full h-full min-h-[120px] bg-slate-900 border-2 border-dashed ${item.content ? 'border-slate-700' : 'border-indigo-500 hover:bg-slate-800'} rounded-xl cursor-pointer relative overflow-hidden group transition-all`}>
+          <label className={`block w-full h-full bg-slate-900 border-2 border-dashed ${item.content ? 'border-slate-700' : 'border-indigo-500 hover:bg-slate-800'} rounded-xl cursor-pointer relative overflow-hidden group transition-all`}>
             <input 
               type="file" 
               accept="image/*" 
