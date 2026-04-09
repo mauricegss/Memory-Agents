@@ -12,6 +12,7 @@ import DashboardHub from './pages/DashboardHub';
 import GameArena from './pages/play/GameArena';
 import ProfessorDashboard from './pages/professor/ProfessorDashboard';
 import Configurator from './pages/professor/Configurator';
+import GameReports from './pages/professor/GameReports';
 import AlunoDashboard from './pages/aluno/AlunoDashboard';
 import TurmaView from './pages/turmas/TurmaView';
 
@@ -98,6 +99,7 @@ function App() {
               <Route element={<PrivateRoute allowedRoles={['professor']} />}>
                 <Route path="/professor" element={<ProfessorDashboard />} />
                 <Route path="/professor/novo-jogo" element={<Configurator />} />
+                <Route path="/professor/relatorios" element={<GameReports />} />
               </Route>
               
               <Route path="*" element={<Navigate to="/" />} />

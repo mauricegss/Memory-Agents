@@ -3,6 +3,7 @@ import { Zap, Type, Image as ImageIcon, Hash, PlaySquare, BoxSelect, Copy, Colum
 import { MatchBuilder } from './config/MatchBuilder';
 
 const ConfigForm = ({ onSubmit }) => {
+  const [title, setTitle] = useState('');
   const [difficulty, setDifficulty] = useState('medium');
   const [gameType, setGameType] = useState('memory_game'); // Locked
   const [matchType, setMatchType] = useState('image_image_same'); // "image_image_same", "image_image_diff", "text_text", "image_text"
@@ -10,11 +11,15 @@ const ConfigForm = ({ onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!title.trim()) {
+      alert('Dê um título ao seu jogo.');
+      return;
+    }
     if (pairs.length < 2) {
       alert('Crie pelo menos 2 pares para gerar um jogo.');
       return;
     }
-    onSubmit({ gameType, matchType, difficulty, pairs, cardCount: pairs.length * 2 });
+    onSubmit({ title, gameType, matchType, difficulty, pairs, cardCount: pairs.length * 2 });
   };
 
   const handleMatchTypeChange = (newType) => {
@@ -32,6 +37,21 @@ const ConfigForm = ({ onSubmit }) => {
 
   return (
     <form className="p-6 space-y-8" onSubmit={handleSubmit}>
+      {/* Título do Jogo */}
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 font-bold text-slate-200">
+          <Type size={20} className="text-white" /> Título do Jogo
+        </label>
+        <input 
+          required
+          type="text" 
+          placeholder="Ex: Capitais da Europa" 
+          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </div>
+
       {/* Opções Gerais do Jogo */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">

@@ -1,16 +1,42 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ConfigForm from '../../components/ConfigForm';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 const Configurator = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
 
-  const handleGenerateGame = (configData) => {
-    // Aqui enviaremos para o backend (API POST /games)
-    console.log("Salvando jogo:", configData);
-    alert('Jogo criado com sucesso! Redirecionando para o seu Dashboard.');
-    navigate('/professor');
+  const handleGenerateGame = async (configData) => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      const { error } = await supabase.from('games').insert([
+        {
+          title: configData.title,
+          author_id: user.id,
+          game_type: configData.gameType,
+          match_type: configData.matchType,
+          difficulty: configData.difficulty,
+          pairs: configData.pairs,
+          card_count: configData.cardCount
+        }
+      ]);
+
+      if (error) throw error;
+      
+      alert('Jogo criado com sucesso!');
+      navigate('/professor');
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao criar jogo: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -27,7 +53,13 @@ const Configurator = () => {
         <p className="text-slate-400">Personalize o tabuleiro e o comportamento do adversário inteligente.</p>
       </div>
 
-      <div className="bg-slate-900 rounded-3xl shadow-lg border border-slate-800 p-2">
+      <div className="bg-slate-900 rounded-3xl shadow-lg border border-slate-800 p-2 relative">
+        {loading && (
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 rounded-3xl flex flex-col items-center justify-center">
+             <Loader2 className="animate-spin text-indigo-500 mb-4" size={48} />
+             <p className="text-white font-bold">Salvando seu jogo...</p>
+          </div>
+        )}
         <ConfigForm onSubmit={handleGenerateGame} />
       </div>
     </div>
