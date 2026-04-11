@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 
-const GameCard = ({ id, title, author, likes, imageUrl, fallbackColor = 'bg-indigo-500', url }) => {
+const GameCard = ({ id, title, author, completions = 0, imageUrl, fallbackColor = 'bg-indigo-500', url }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -41,9 +41,9 @@ const GameCard = ({ id, title, author, likes, imageUrl, fallbackColor = 'bg-indi
           )}
         </div>
         <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 font-medium">
-          <div className="flex items-center gap-1">
-            <ThumbsUp size={12} className={likes > 80 ? "text-emerald-500" : "text-slate-600"} />
-            <span className="font-bold text-slate-300">{likes}%</span>
+          <div className="flex items-center gap-1" title="Completudes (jogadas realizadas)">
+            <Play size={12} className={completions > 20 ? "text-emerald-500 fill-emerald-500" : "text-slate-600"} />
+            <span className="font-bold text-slate-300">{completions}</span>
           </div>
           <div className="flex items-center gap-1">
             <UserIcon size={12} />

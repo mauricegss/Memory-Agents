@@ -21,22 +21,26 @@ const AlunoDashboard = () => {
   const fetchMinhasTurmas = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data: relations } = await supabase
         .from('turma_alunos')
-        .select(`
-          turma_id,
-          turmas (
-            id,
-            name,
-            code,
-            professor_id
-          )
-        `)
+        .select('turma_id')
         .eq('aluno_id', user.id);
         
+      if (!relations || relations.length === 0) {
+        setTurmas([]);
+        return;
+      }
+      
+      const tIds = relations.map(r => r.turma_id);
+      
+      const { data: turmasData, error } = await supabase
+        .from('turmas')
+        .select('id, name, code, professor_id')
+        .in('id', tIds);
+        
       if (error) throw error;
-      const formattedTurmas = data?.map(d => d.turmas).filter(Boolean) || [];
-      setTurmas(formattedTurmas);
+      
+      setTurmas(turmasData || []);
     } catch (error) {
       console.error('Erro ao buscar turmas:', error.message);
       setTurmas([]);
@@ -142,11 +146,22 @@ const AlunoDashboard = () => {
           </div>
         </section>
 
-        <section className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
-          <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-100"><Trophy size={20} className="text-amber-500"/> Conquistas vs IA</h3>
-          <div className="text-center py-8 bg-slate-950 rounded-2xl border border-slate-800/50">
-            <span className="text-5xl font-black text-indigo-500">12</span>
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-tighter mt-2">Partidas Ganhas</p>
+        <section className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col justify-between">
+          <div>
+            <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-100">
+              <Trophy size={20} className="text-amber-500"/> Meu Progresso
+            </h3>
+            <p className="text-slate-400 text-sm mb-6">Acompanhe seu engajamento nas atividades passadas pelo professor.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center py-6 bg-slate-950 rounded-2xl border border-slate-800/50">
+              <span className="text-4xl font-black text-indigo-500">{turmas.length}</span>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-tighter mt-2">Turmas Ativas</p>
+            </div>
+            <div className="text-center py-6 bg-slate-950 rounded-2xl border border-slate-800/50">
+              <span className="text-4xl font-black text-emerald-500">0</span>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-tighter mt-2">Relatórios</p>
+            </div>
           </div>
         </section>
       </div>

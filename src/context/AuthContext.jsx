@@ -22,17 +22,24 @@ export const AuthProvider = ({ children }) => {
           setUser(null);
           setLoading(false);
         } else if (session) {
-          // Set partial user immediately to allow app render
-          // The profile fetch will complete in background
-          if (!user) {
-             setUser({ id: session.user.id, email: session.user.email, role: 'aluno' }); // Optimistic fallback
-          }
-          
-          fetchProfile(session.user.id);
-          setLoading(false);
-        } else {
-
-          // No session
+          // Precisamos buscar o profile ANTES de tirar o loading, pois PrivateRoute depende do role
+          setUser(prevUser => {
+            if (!prevUser || prevUser.id !== session.user.id) {
+               fetchProfile(session.user.id).then((profileData) => {
+                 if (profileData) {
+                   setUser(profileData);
+                 } else {
+                   setUser({ id: session.user.id, email: session.user.email, name: 'Usuário', role: 'aluno' });
+                 }
+                 setLoading(false);
+               });
+               return prevUser; // Mantém o estado atual (null se for o início) 
+            } else {
+               setLoading(false);
+               return prevUser;
+            }
+          });
+        } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
           setUser(null);
           setLoading(false);
         }
@@ -64,14 +71,12 @@ export const AuthProvider = ({ children }) => {
       
       if (!data) {
         console.warn('No profile found for user:', userId);
-        setUser({ id: userId, email: '', name: 'Usuário', role: 'aluno' }); // Fallback safe user
-      } else {
-        setUser(data);
+        return null;
       }
+      return data;
     } catch (error) {
-
       console.error('Error fetching profile:', error.message);
-      setUser(null);
+      return null;
     }
   };
 

@@ -19,7 +19,6 @@ const Configurator = () => {
         {
           title: configData.title,
           author_id: user.id,
-          game_type: configData.gameType,
           match_type: configData.matchType,
           difficulty: configData.difficulty,
           pairs: configData.pairs,

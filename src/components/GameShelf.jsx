@@ -17,7 +17,7 @@ const GameShelf = ({ title, children, showMoreLink }) => {
   };
 
   return (
-    <section className="space-y-3 relative group/shelf">
+    <section className="space-y-1 relative group/shelf">
       <div className="flex items-center justify-between px-2">
         <h3 className="text-2xl font-bold text-slate-100 tracking-tight">{title}</h3>
         {showMoreLink && (
@@ -37,7 +37,7 @@ const GameShelf = ({ title, children, showMoreLink }) => {
 
         <div 
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto pb-4 pt-1 scrollbar-hide px-2 snap-x snap-mandatory"
+          className="flex gap-4 overflow-x-auto pb-1 pt-1 scrollbar-hide px-2 snap-x snap-mandatory"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {children}

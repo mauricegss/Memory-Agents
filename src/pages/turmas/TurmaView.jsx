@@ -16,6 +16,9 @@ const TurmaView = () => {
   const [loading, setLoading] = useState(true);
   const [turmaGames, setTurmaGames] = useState([]);
   
+  const [activeTab, setActiveTab] = useState('atividades');
+  const [alunosList, setAlunosList] = useState([]);
+  
   // States para modal de adicionar jogo
   const [showAddGame, setShowAddGame] = useState(false);
   const [myGames, setMyGames] = useState([]);
@@ -47,21 +50,42 @@ const TurmaView = () => {
       
       setProfessorName(profData?.name || 'Professor(a)');
 
-      const { count } = await supabase
+      // Alunos vinculados (Substitui o request de Count anterior para mapeamento completo)
+      const { data: relAlunosData } = await supabase
         .from('turma_alunos')
-        .select('*', { count: 'exact', head: true })
+        .select('aluno_id')
         .eq('turma_id', turmaId);
-        
-      setStudentCount(count || 0);
+
+      if (relAlunosData && relAlunosData.length > 0) {
+        const studentIds = relAlunosData.map(a => a.aluno_id);
+        const { data: profsData } = await supabase
+           .from('profiles')
+           .select('id, name, email')
+           .in('id', studentIds);
+           
+        setAlunosList(profsData || []);
+        setStudentCount(profsData?.length || 0);
+      } else {
+        setAlunosList([]);
+        setStudentCount(0);
+      }
 
       // Fetch jogos associados à turma
-      const { data: relGames } = await supabase
+      const { data: relGamesData } = await supabase
         .from('turma_games')
-        .select('games(id, title, likes)')
+        .select('game_id')
         .eq('turma_id', turmaId);
         
-      if (relGames) {
-        setTurmaGames(relGames.map(r => r.games).filter(Boolean));
+      if (relGamesData && relGamesData.length > 0) {
+        const gameIds = relGamesData.map(r => r.game_id);
+        const { data: gamesData } = await supabase
+           .from('games')
+           .select('*')
+           .in('id', gameIds);
+           
+        setTurmaGames(gamesData || []);
+      } else {
+        setTurmaGames([]);
       }
 
       // Se for o criador da turma, busca os jogos dele para o modal de adicionar jogo
@@ -95,6 +119,19 @@ const TurmaView = () => {
        alert('Erro ao vincular jogo: ' + err.message);
      } finally {
        setAddingGame(false);
+     }
+  };
+
+  const handleRemoveStudent = async (studentId) => {
+     if (!window.confirm("Deseja realmente remover este aluno? Ele perderá acesso às atividades desta turma.")) return;
+     try {
+       const { error } = await supabase.from('turma_alunos').delete().eq('turma_id', turma.id).eq('aluno_id', studentId);
+       if (error) throw error;
+       
+       setAlunosList(alunosList.filter(a => a.id !== studentId));
+       setStudentCount(prev => prev - 1);
+     } catch (err) {
+       alert('Erro ao remover aluno: ' + err.message);
      }
   };
 
@@ -160,34 +197,89 @@ const TurmaView = () => {
 
       {/* Lista de Atividades (Jogos) Associadas à Turma */}
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-slate-100">Atividades da Turma</h2>
-          {user?.id === turma.professor_id && (
-            <button 
-              onClick={() => setShowAddGame(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-500 transition-colors shadow-md"
-            >
-              <Plus size={16} /> Adicionar Jogo
-            </button>
-          )}
+        <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 mb-6 max-w-fit">
+           <button 
+             onClick={() => setActiveTab('atividades')}
+             className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'atividades' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+           >
+             Atividades da Turma
+           </button>
+           {user?.role === 'professor' && (
+             <button 
+               onClick={() => setActiveTab('alunos')}
+               className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'alunos' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+             >
+               Gerenciar Alunos
+             </button>
+           )}
         </div>
-        
-        {turmaGames.length === 0 ? (
-           <div className="bg-slate-900 border border-dashed border-slate-800 rounded-3xl p-10 text-center">
-             <p className="text-slate-500">Nenhuma atividade disponível nesta turma ainda.</p>
-           </div>
+
+        {activeTab === 'atividades' ? (
+          <>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-slate-100">Jogos Desbloqueados</h2>
+              {user?.id === turma.professor_id && (
+                <button 
+                  onClick={() => setShowAddGame(true)}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-500 transition-colors shadow-md"
+                >
+                  <Plus size={16} /> Adicionar Jogo
+                </button>
+              )}
+            </div>
+            
+            {turmaGames.length === 0 ? (
+               <div className="bg-slate-900 border border-dashed border-slate-800 rounded-3xl p-10 text-center">
+                 <p className="text-slate-500">Nenhuma atividade disponível nesta turma ainda.</p>
+               </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {turmaGames.map((game, i) => (
+                  <GameCard 
+                    key={game.id} 
+                    id={game.id} 
+                    title={game.title} 
+                    author={professorName} 
+                    completions={game.plays || 0} 
+                    fallbackColor={i % 2 === 0 ? "bg-emerald-600" : "bg-indigo-600"} 
+                  />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {turmaGames.map((game, i) => (
-              <GameCard 
-                key={game.id} 
-                id={game.id} 
-                title={game.title} 
-                author={professorName} 
-                likes={game.likes} 
-                fallbackColor={i % 2 === 0 ? "bg-emerald-600" : "bg-indigo-600"} 
-              />
-            ))}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
+             <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+               <h3 className="font-bold text-slate-100 flex items-center gap-2"><Users className="text-indigo-500"/> Alunos Matriculados</h3>
+               <span className="bg-slate-800 text-indigo-400 px-3 py-1 rounded-full text-xs font-bold">{studentCount} Aluno(s)</span>
+             </div>
+             {alunosList.length === 0 ? (
+                <div className="p-12 text-center text-slate-500">
+                  Ainda não há alunos participando desta turma.
+                </div>
+             ) : (
+                <ul className="divide-y divide-slate-800/50">
+                  {alunosList.map(aluno => (
+                    <li key={aluno.id} className="p-4 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
+                       <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-indigo-900/50 text-indigo-400 rounded-full flex items-center justify-center font-black uppercase">
+                            {aluno.name ? aluno.name[0] : '?'}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-200">{aluno.name}</p>
+                            <p className="text-xs text-slate-500">{aluno.email}</p>
+                          </div>
+                       </div>
+                       <button 
+                         onClick={() => handleRemoveStudent(aluno.id)}
+                         className="text-xs font-bold text-rose-500 hover:text-white bg-rose-500/10 hover:bg-rose-600 px-4 py-2 rounded-lg transition-all"
+                       >
+                         Remover
+                       </button>
+                    </li>
+                  ))}
+                </ul>
+             )}
           </div>
         )}
       </div>

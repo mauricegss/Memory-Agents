@@ -17,6 +17,7 @@ const ProfessorDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [newTurma, setNewTurma] = useState({ name: '', code: '' });
+  const [editingTurma, setEditingTurma] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -33,12 +34,32 @@ const ProfessorDashboard = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('turmas')
-        .select('*, turma_alunos(count), turma_games(count)')
+        .select('*')
         .eq('professor_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTurmas(data || []);
+      
+      // Busca manual das contagens para evitar problemas de relacionamento via PostgREST
+      const turmasFormatadas = await Promise.all((data || []).map(async (t) => {
+          const { count: alunosCount } = await supabase
+            .from('turma_alunos')
+            .select('*', { count: 'exact', head: true })
+            .eq('turma_id', t.id);
+            
+          const { count: gamesCount } = await supabase
+            .from('turma_games')
+            .select('*', { count: 'exact', head: true })
+            .eq('turma_id', t.id);
+
+          return {
+            ...t,
+            turma_alunos: [{ count: alunosCount || 0 }],
+            turma_games: [{ count: gamesCount || 0 }]
+          };
+      }));
+      
+      setTurmas(turmasFormatadas);
     } catch (error) {
       console.error('Error fetching turmas:', error.message);
       setTurmas([]);
@@ -87,6 +108,50 @@ const ProfessorDashboard = () => {
       setNewTurma({ name: '', code: '' });
     } catch (error) {
       alert('Erro ao criar turma: ' + error.message);
+    }
+  };
+
+  const handleEditTurma = async (e) => {
+    e.preventDefault();
+    try {
+      const { data, error } = await supabase
+        .from('turmas')
+        .update({ name: editingTurma.name, code: editingTurma.code })
+        .eq('id', editingTurma.id)
+        .select();
+
+      if (error) throw error;
+      
+      setTurmas(turmas.map(t => t.id === editingTurma.id ? { ...t, ...data[0] } : t));
+      setEditingTurma(null);
+    } catch (error) {
+      alert('Erro ao atualizar turma: ' + error.message);
+    }
+  };
+
+  const handleDeleteTurma = async () => {
+    if (!window.confirm('Tem certeza que deseja excluir esta turma? Isso é irreversível. Todas as atividades associadas perderão o vínculo.')) return;
+    try {
+      // 1. Apaga relações pre-existentes (falha de forma silenciosa se a tabela ainda não existir no bd)
+      try {
+         await supabase.from('turma_alunos').delete().eq('turma_id', editingTurma.id);
+         await supabase.from('turma_games').delete().eq('turma_id', editingTurma.id);
+      } catch (err) {
+         console.warn('Tabelas de relacionamento não encontradas. Ignorando limpezas.');
+      }
+
+      // 2. Apaga a Turma
+      const { data, error } = await supabase.from('turmas').delete().eq('id', editingTurma.id).select();
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+         throw new Error('A operação foi executada, mas o banco de dados recusou a exclusão devido a permissões de segurança (RLS).');
+      }
+
+      setTurmas(turmas.filter(t => t.id !== editingTurma.id));
+      setEditingTurma(null);
+    } catch (error) {
+      alert('Erro ao excluir turma: ' + error.message);
     }
   };
 
@@ -175,7 +240,7 @@ const ProfessorDashboard = () => {
                       {turma.code.split('-')[0] || 'CLASS'}
                     </span>
                     <button 
-                      onClick={() => alert(`Configurando a turma: ${turma.name}`)}
+                      onClick={() => setEditingTurma(turma)}
                       className="text-slate-500 hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100"
                     >
                       <Settings size={18}/>
@@ -289,6 +354,60 @@ const ProfessorDashboard = () => {
                     className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg hover:shadow-indigo-500/20"
                   >
                     Criar Turma
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Edição de Turma */}
+        {editingTurma && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2rem] p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-black text-slate-100 italic">Editar Turma</h3>
+                <button onClick={() => setEditingTurma(null)} className="text-slate-500 hover:text-white">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <form onSubmit={handleEditTurma} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Nome da Turma</label>
+                  <input 
+                    required
+                    type="text" 
+                    placeholder="Ex: Matemática - 6º Ano A" 
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3.5 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
+                    value={editingTurma.name}
+                    onChange={(e) => setEditingTurma({...editingTurma, name: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Código Identificador</label>
+                  <input 
+                    required
+                    type="text" 
+                    placeholder="Ex: MAT6-2026" 
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3.5 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
+                    value={editingTurma.code}
+                    onChange={(e) => setEditingTurma({...editingTurma, code: e.target.value})}
+                  />
+                </div>
+                <div className="pt-2 flex gap-3">
+                  <button 
+                    type="submit"
+                    className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg hover:shadow-indigo-500/20"
+                  >
+                    Salvar
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={handleDeleteTurma}
+                    className="bg-red-900/30 text-red-500 border border-red-900 px-6 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-lg"
+                  >
+                    Excluir
                   </button>
                 </div>
               </form>
