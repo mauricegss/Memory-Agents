@@ -13,6 +13,18 @@ window.addEventListener('error', (event) => {
   document.body.appendChild(errorDiv);
 });
 
+window.addEventListener('unhandledrejection', (event) => {
+  const msg = event.reason?.message || '';
+  if (msg.includes('Refresh Token Not Found') || msg.includes('Invalid Refresh Token')) {
+    console.warn('Intercepted broken refresh token. Clearing local storage...');
+    for (let key in localStorage) {
+      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        localStorage.removeItem(key);
+      }
+    }
+  }
+});
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'

@@ -17,7 +17,7 @@ const GameReports = () => {
   const [turmaInfo, setTurmaInfo] = useState(null);
 
   useEffect(() => {
-    if (turmaId && user) {
+    if (user) {
       fetchReports();
     } else {
       setLoading(false);

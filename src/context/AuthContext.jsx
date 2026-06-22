@@ -95,6 +95,13 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('SignOut failed, forcing local storage clear:', err);
+      for (let key in localStorage) {
+        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          localStorage.removeItem(key);
+        }
+      }
     } finally {
       setUser(null);
     }

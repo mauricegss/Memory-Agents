@@ -238,7 +238,7 @@ const ProfessorDashboard = () => {
               {turmas.map(turma => (
                 <div key={turma.id} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 hover:shadow-lg hover:border-indigo-500/50 transition-all group">
                   <div className="flex justify-between items-start mb-4">
-                    <span className="bg-indigo-900/50 text-indigo-300 font-black text-xs px-3 py-1 rounded-lg tracking-wider uppercase">
+                     <span className="bg-indigo-900/50 text-indigo-300 font-black text-xs px-3 py-1 rounded-lg tracking-wider uppercase">
                       {turma.code.split('-')[0] || 'CLASS'}
                     </span>
                     <button 
@@ -308,7 +308,7 @@ const ProfessorDashboard = () => {
                     id={game.id} 
                     title={game.title} 
                     author="Você" 
-                    likes={game.likes} 
+                    completions={game.plays} 
                     fallbackColor={i % 2 === 0 ? "bg-indigo-600" : "bg-purple-600"} 
                   />
                ))}

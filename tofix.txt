@@ -1,4 +1,0 @@
-Painel Professor -> Meus Jogos -> Relatório Visão Geral (Global): NÃO APARECE O HISTÓRICO GLOBAL
-Painel Professor -> Meus Jogos: Aqui o jogo não atualizou o número de vezes jogado, igual no explorar
-Sendo Professor: não pode ver relatório de jogos de outros professores no explorar
-Depois de um tempo usando do nada o site caiu? não carrega nada, fui deslogado e não loga

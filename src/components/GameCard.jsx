@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 
-const GameCard = ({ id, title, author, completions = 0, imageUrl, fallbackColor = 'bg-indigo-500', url, turmaId }) => {
+const GameCard = ({ id, title, author, authorId, completions = 0, imageUrl, fallbackColor = 'bg-indigo-500', url, turmaId }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   
@@ -36,7 +36,7 @@ const GameCard = ({ id, title, author, completions = 0, imageUrl, fallbackColor 
       <div>
         <div className="flex justify-between items-start gap-2">
           <h4 className="font-bold text-slate-100 truncate leading-tight group-hover:underline decoration-slate-600 cursor-pointer" onClick={handlePlayClick}>{title}</h4>
-          {user?.role === 'professor' && (
+          {user?.role === 'professor' && user?.id === authorId && (
             <button 
               onClick={(e) => {
                 e.stopPropagation();

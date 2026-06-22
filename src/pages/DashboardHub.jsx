@@ -114,6 +114,7 @@ const DashboardHub = () => {
                 id={game.id} 
                 title={game.title} 
                 author={game.authorName} 
+                authorId={game.author_id}
                 completions={game.plays || 0} 
                 fallbackColor={i % 2 === 0 ? "bg-purple-600" : "bg-indigo-600"} 
               />
@@ -128,6 +129,7 @@ const DashboardHub = () => {
                   id={game.id} 
                   title={game.title} 
                   author={game.authorName} 
+                  authorId={game.author_id}
                   completions={game.plays || 0} 
                   fallbackColor={i % 2 === 0 ? "bg-emerald-600" : "bg-teal-600"} 
                 />
@@ -142,6 +144,7 @@ const DashboardHub = () => {
                 id={game.id} 
                 title={game.title} 
                 author={game.authorName} 
+                authorId={game.author_id}
                 completions={game.plays || 0} 
                 fallbackColor={i % 2 === 0 ? "bg-cyan-600" : "bg-blue-600"} 
               />
