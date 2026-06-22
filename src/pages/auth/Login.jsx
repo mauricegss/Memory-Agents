@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { GraduationCap, BookOpen, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
+import { Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
@@ -9,7 +9,13 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -17,7 +23,7 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const { user } = await login(email, password);
+      await login(email, password);
       
       // The profile is fetched automatically by AuthContext's onAuthStateChange
       // But we might need a small delay or use the returned data if we need it here
@@ -92,4 +98,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Login;

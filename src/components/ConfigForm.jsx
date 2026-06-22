@@ -5,7 +5,7 @@ import { MatchBuilder } from './config/MatchBuilder';
 const ConfigForm = ({ onSubmit }) => {
   const [title, setTitle] = useState('');
   const [difficulty, setDifficulty] = useState('medium');
-  const [gameType, setGameType] = useState('memory_game'); // Locked
+  const [gameType] = useState('memory_game'); // Locked
   const [matchType, setMatchType] = useState('image_image_same'); // "image_image_same", "image_image_diff", "text_text", "image_text"
   const [pairs, setPairs] = useState([]);
 

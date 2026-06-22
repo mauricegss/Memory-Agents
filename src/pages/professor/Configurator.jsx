@@ -15,18 +15,39 @@ const Configurator = () => {
     
     try {
       setLoading(true);
-      const { error } = await supabase.from('games').insert([
+      const { data: gameData, error: gameError } = await supabase.from('memory_agents_games').insert([
         {
           title: configData.title,
           author_id: user.id,
           match_type: configData.matchType,
           difficulty: configData.difficulty,
-          pairs: configData.pairs,
           card_count: configData.cardCount
         }
-      ]);
+      ]).select().single();
 
-      if (error) throw error;
+      if (gameError) throw gameError;
+
+      // Insert cards
+      const cardsToInsert = configData.pairs.map((pair, index) => ({
+        game_id: gameData.id,
+        pair_index: index,
+        item1_type: pair.item1.type,
+        item1_content: pair.item1.content,
+        item2_type: pair.item2.type,
+        item2_content: pair.item2.content
+      }));
+
+      const { error: cardsError } = await supabase.from('memory_agents_cards').insert(cardsToInsert);
+      if (cardsError) throw cardsError;
+
+      // Default AI Config
+      const { error: aiError } = await supabase.from('memory_agents_ai_configs').insert([
+        {
+          game_id: gameData.id,
+          ai_type: 'heuristic'
+        }
+      ]);
+      if (aiError) throw aiError;
       
       alert('Jogo criado com sucesso!');
       navigate('/professor');

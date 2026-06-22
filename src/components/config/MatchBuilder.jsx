@@ -1,9 +1,13 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Plus, Trash2, Image as ImageIcon, UploadCloud, Type } from 'lucide-react';
 import { compressImage } from '../../utils/imageProcessor';
+import { uploadFileToStorage } from '../../services/storageService';
+import { useAuth } from '../../context/AuthContext';
 
 export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
   const [draggedItem, setDraggedItem] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const { user } = useAuth();
 
   // Helper para gerar IDs únicos locais
   const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -11,17 +15,18 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
   // Upload em massa inteligente com preenchimento de slots
   const handleBulkImageUpload = async (e) => {
     const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+    if (files.length === 0 || !user) return;
+    setIsUploading(true);
 
-    // Processar todas as imagens em blobs/urls primeiro
+    // Processar todas as imagens em blobs e fazer upload
     const processedImages = [];
     for (const file of files) {
       try {
         const compressedBlob = await compressImage(file, 512, 0.85);
-        const url = URL.createObjectURL(compressedBlob);
+        const url = await uploadFileToStorage(compressedBlob, 'memory-agents-images', user.id);
         processedImages.push(url);
       } catch (err) {
-        console.error("Erro ao comprimir imagem bulk:", err);
+        console.error("Erro ao fazer upload da imagem bulk:", err);
       }
     }
 
@@ -74,14 +79,16 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
     }
 
     setPairs(updatedPairs);
+    setIsUploading(false);
   };
 
   // Upload para um slot específico de um par com Compressão
   const handleSingleSlotUpload = async (pairId, slotIndex, file) => {
-    if (!file) return;
+    if (!file || !user) return;
     try {
+      setIsUploading(true);
       const compressedBlob = await compressImage(file, 512, 0.85);
-      const url = URL.createObjectURL(compressedBlob);
+      const url = await uploadFileToStorage(compressedBlob, 'memory-agents-images', user.id);
       const updated = pairs.map(p => {
         if (p.id === pairId) {
           if (slotIndex === 1) return { ...p, item1: { type: 'image', content: url } };
@@ -91,7 +98,9 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
       });
       setPairs(updated);
     } catch (err) {
-      console.error("Erro ao comprimir imagem única:", err);
+      console.error("Erro ao fazer upload de imagem única:", err);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -275,9 +284,9 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
               <h3 className="font-bold text-slate-100 flex items-center gap-2"><UploadCloud size={20} className="text-indigo-400" /> Upload Rápido de Imagens</h3>
               <p className="text-slate-400 text-sm mt-1">Gere quadrados automaticamente. Depois **clique e arraste** para trocar imagens entre os blocos!</p>
             </div>
-            <label className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-md hover:bg-indigo-500 transition-all cursor-pointer whitespace-nowrap">
-              Selecionar Imagens
-              <input type="file" multiple accept="image/*" className="hidden" onChange={handleBulkImageUpload} />
+            <label className={`bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-md transition-all whitespace-nowrap flex items-center justify-center gap-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-500 cursor-pointer'}`}>
+              {isUploading ? 'Enviando...' : 'Selecionar Imagens'}
+              <input type="file" multiple accept="image/*" className="hidden" disabled={isUploading} onChange={handleBulkImageUpload} />
             </label>
           </div>
         </div>
@@ -307,7 +316,7 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {pairs.map((pair, index) => (
+          {pairs.map((pair) => (
             <div key={pair.id} className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl flex gap-3 group/pair relative animate-fadeIn">
               {/* Botão de excluir */}
               <button 

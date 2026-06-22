@@ -4,6 +4,8 @@ import { ChevronLeft, BarChart3, AlertCircle, Clock, CheckCircle2, XCircle } fro
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
+/* eslint-disable react-hooks/exhaustive-deps */
+
 const GameReports = () => {
   const [searchParams] = useSearchParams();
   const turmaId = searchParams.get('turma');
@@ -27,16 +29,16 @@ const GameReports = () => {
       setLoading(true);
       if (turmaId) {
         // Fetch turma name
-        const { data: tData } = await supabase.from('turmas').select('name').eq('id', turmaId).single();
+        const { data: tData } = await supabase.from('memory_agents_turmas').select('name').eq('id', turmaId).single();
         if (tData) setTurmaInfo(tData);
 
         // Fetch sessions
         const { data, error } = await supabase
-          .from('game_sessions')
+          .from('memory_agents_matches')
           .select(`
-            id, score, errors, time_seconds, created_at,
-            profiles (name),
-            games (title)
+            id, player_score, player_flips, total_time_seconds, created_at,
+            memory_agents_profiles (name),
+            memory_agents_games (title)
           `)
           .eq('turma_id', turmaId)
           .order('created_at', { ascending: false });
@@ -45,16 +47,16 @@ const GameReports = () => {
         setSessions(data || []);
       } else {
         // Global Reports: Fetch all games by this professor
-        const { data: myGames } = await supabase.from('games').select('id').eq('author_id', user.id);
+        const { data: myGames } = await supabase.from('memory_agents_games').select('id').eq('author_id', user.id);
         const gameIds = (myGames || []).map(g => g.id);
         
         if (gameIds.length > 0) {
            const { data, error } = await supabase
-            .from('game_sessions')
+            .from('memory_agents_matches')
             .select(`
-              id, score, errors, time_seconds, created_at, turma_id,
-              profiles (name),
-              games (title)
+              id, player_score, player_flips, total_time_seconds, created_at, turma_id,
+              memory_agents_profiles (name),
+              memory_agents_games (title)
             `)
             .in('game_id', gameIds)
             .order('created_at', { ascending: false });
@@ -62,7 +64,7 @@ const GameReports = () => {
            if (error) throw error;
            
            // Fetch all possible turmas to map the names
-           const { data: turmasData } = await supabase.from('turmas').select('id, name');
+           const { data: turmasData } = await supabase.from('memory_agents_turmas').select('id, name');
            const turmasMap = (turmasData || []).reduce((acc, t) => ({...acc, [t.id]: t.name}), {});
            
            const mappedSessions = (data||[]).map(s => ({
@@ -116,7 +118,7 @@ const GameReports = () => {
            <div>
               <p className="text-slate-500 font-bold mb-1">Taxa Media Erro</p>
               <p className="text-2xl font-black text-rose-400">
-                {sessions.length > 0 ? (sessions.reduce((acc, s) => acc + s.errors, 0) / sessions.length).toFixed(1) : 0}
+                {sessions.length > 0 ? (sessions.reduce((acc, s) => acc + (s.player_flips - s.player_score), 0) / sessions.length).toFixed(1) : 0}
               </p>
            </div>
         </div>
@@ -146,12 +148,12 @@ const GameReports = () => {
                {sessions.map(s => (
                  <tr key={s.id} className="hover:bg-slate-800/50 transition-colors">
                    {!turmaId && <td className="p-4 text-slate-400 font-medium">{s.turmaName}</td>}
-                   <td className="p-4 text-slate-100 font-bold">{s.profiles?.name || 'Aluno Excluído'}</td>
-                   <td className="p-4 text-indigo-300">{s.games?.title || 'Desconhecido'}</td>
+                   <td className="p-4 text-slate-100 font-bold">{s.memory_agents_profiles?.name || 'Aluno Excluído'}</td>
+                   <td className="p-4 text-indigo-300">{s.memory_agents_games?.title || 'Desconhecido'}</td>
                    <td className="p-4 text-slate-500">{new Date(s.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit' })}</td>
-                   <td className="p-4 text-center text-amber-200 flex items-center justify-center gap-1.5"><Clock size={14}/> {formatTime(s.time_seconds)}</td>
-                   <td className="p-4 text-center text-emerald-400"><span className="flex justify-center items-center gap-1"><CheckCircle2 size={14}/> {s.score}</span></td>
-                   <td className="p-4 text-center text-rose-400"><span className="flex justify-center items-center gap-1"><XCircle size={14}/> {s.errors}</span></td>
+                   <td className="p-4 text-center text-amber-200 flex items-center justify-center gap-1.5"><Clock size={14}/> {formatTime(s.total_time_seconds)}</td>
+                   <td className="p-4 text-center text-emerald-400"><span className="flex justify-center items-center gap-1"><CheckCircle2 size={14}/> {s.player_score}</span></td>
+                   <td className="p-4 text-center text-rose-400"><span className="flex justify-center items-center gap-1"><XCircle size={14}/> {Math.max(0, s.player_flips - s.player_score)}</span></td>
                  </tr>
                ))}
              </tbody>

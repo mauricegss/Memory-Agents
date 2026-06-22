@@ -3,15 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 
-const GameCard = ({ id, title, author, completions = 0, imageUrl, fallbackColor = 'bg-indigo-500', url }) => {
+const GameCard = ({ id, title, author, completions = 0, imageUrl, fallbackColor = 'bg-indigo-500', url, turmaId }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  
+  const handlePlayClick = () => {
+    if (url) {
+      navigate(url);
+    } else {
+      const playUrl = turmaId ? `/play/${id}?turma=${turmaId}` : `/play/${id}`;
+      navigate(playUrl);
+    }
+  };
 
   return (
     <div className="flex-shrink-0 w-[220px] sm:w-[240px] group flex flex-col gap-2 snap-start">
       <div 
         className={`w-full aspect-[16/9] ${imageUrl ? '' : fallbackColor} rounded-xl overflow-hidden relative shadow-sm group-hover:shadow-md transition-all cursor-pointer`}
-        onClick={() => navigate(url || `/play/${id}`)}
+        onClick={handlePlayClick}
       >
         {imageUrl ? (
           <img src={imageUrl} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -26,12 +35,12 @@ const GameCard = ({ id, title, author, completions = 0, imageUrl, fallbackColor 
       </div>
       <div>
         <div className="flex justify-between items-start gap-2">
-          <h4 className="font-bold text-slate-100 truncate leading-tight group-hover:underline decoration-slate-600 cursor-pointer" onClick={() => navigate(url || `/play/${id}`)}>{title}</h4>
+          <h4 className="font-bold text-slate-100 truncate leading-tight group-hover:underline decoration-slate-600 cursor-pointer" onClick={handlePlayClick}>{title}</h4>
           {user?.role === 'professor' && (
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                alert('Em breve você poderá ver os relatórios deste jogo!');
+                navigate(`/professor/relatorios${turmaId ? `?turma=${turmaId}` : ''}`);
               }}
               className="text-indigo-400 hover:text-indigo-300 transition-colors"
               title="Ver Relatórios"

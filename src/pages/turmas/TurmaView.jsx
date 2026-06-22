@@ -24,9 +24,11 @@ const TurmaView = () => {
   const [myGames, setMyGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState('');
   const [addingGame, setAddingGame] = useState(false);
+  const [turmaStats, setTurmaStats] = useState({ avgScore: null, playerRank: null, totalMatches: 0 });
 
   useEffect(() => {
     fetchTurmaData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turmaId]);
 
   const fetchTurmaData = async () => {
@@ -34,7 +36,7 @@ const TurmaView = () => {
       setLoading(true);
       
       const { data: turmaData, error: turmaError } = await supabase
-        .from('turmas')
+        .from('memory_agents_turmas')
         .select('*')
         .eq('id', turmaId)
         .single();
@@ -43,7 +45,7 @@ const TurmaView = () => {
       setTurma(turmaData);
 
       const { data: profData } = await supabase
-        .from('profiles')
+        .from('memory_agents_profiles')
         .select('name')
         .eq('id', turmaData.professor_id)
         .maybeSingle();
@@ -52,14 +54,14 @@ const TurmaView = () => {
 
       // Alunos vinculados (Substitui o request de Count anterior para mapeamento completo)
       const { data: relAlunosData } = await supabase
-        .from('turma_alunos')
+        .from('memory_agents_turma_alunos')
         .select('aluno_id')
         .eq('turma_id', turmaId);
 
       if (relAlunosData && relAlunosData.length > 0) {
         const studentIds = relAlunosData.map(a => a.aluno_id);
         const { data: profsData } = await supabase
-           .from('profiles')
+           .from('memory_agents_profiles')
            .select('id, name, email')
            .in('id', studentIds);
            
@@ -72,14 +74,14 @@ const TurmaView = () => {
 
       // Fetch jogos associados à turma
       const { data: relGamesData } = await supabase
-        .from('turma_games')
+        .from('memory_agents_turma_games')
         .select('game_id')
         .eq('turma_id', turmaId);
         
       if (relGamesData && relGamesData.length > 0) {
         const gameIds = relGamesData.map(r => r.game_id);
         const { data: gamesData } = await supabase
-           .from('games')
+           .from('memory_agents_games')
            .select('*')
            .in('id', gameIds);
            
@@ -87,6 +89,9 @@ const TurmaView = () => {
       } else {
         setTurmaGames([]);
       }
+
+      // Busca estatísticas reais da turma
+      await fetchTurmaStats();
 
       // Se for o criador da turma, busca os jogos dele para o modal de adicionar jogo
       if (user?.id === turmaData.professor_id) {
@@ -100,8 +105,45 @@ const TurmaView = () => {
     }
   };
 
+  const fetchTurmaStats = async () => {
+    try {
+      const { data: matches, error } = await supabase
+        .from('memory_agents_matches')
+        .select('player_id, player_score')
+        .eq('turma_id', turmaId);
+
+      if (error || !matches || matches.length === 0) {
+        setTurmaStats({ avgScore: null, playerRank: null, totalMatches: 0 });
+        return;
+      }
+
+      // Média geral (para professor)
+      const avgScore = (matches.reduce((sum, m) => sum + (m.player_score || 0), 0) / matches.length).toFixed(1);
+
+      // Ranking do aluno (para aluno)
+      let playerRank = null;
+      if (user && user.role === 'aluno') {
+        // Agrupa scores por jogador (soma total)
+        const scoresByPlayer = {};
+        matches.forEach(m => {
+          scoresByPlayer[m.player_id] = (scoresByPlayer[m.player_id] || 0) + (m.player_score || 0);
+        });
+        // Ordena do maior para o menor
+        const ranked = Object.entries(scoresByPlayer)
+          .sort(([, a], [, b]) => b - a)
+          .map(([id]) => id);
+        const idx = ranked.indexOf(user.id);
+        playerRank = idx >= 0 ? idx + 1 : null;
+      }
+
+      setTurmaStats({ avgScore, playerRank, totalMatches: matches.length });
+    } catch {
+      setTurmaStats({ avgScore: null, playerRank: null, totalMatches: 0 });
+    }
+  };
+
   const fetchProfessorGames = async (profId) => {
-     const { data } = await supabase.from('games').select('id, title').eq('author_id', profId);
+     const { data } = await supabase.from('memory_agents_games').select('id, title').eq('author_id', profId);
      if (data) setMyGames(data);
   };
 
@@ -109,7 +151,7 @@ const TurmaView = () => {
      if (!selectedGame) return;
      try {
        setAddingGame(true);
-       const { error } = await supabase.from('turma_games').insert([{ turma_id: turma.id, game_id: selectedGame }]);
+       const { error } = await supabase.from('memory_agents_turma_games').insert([{ turma_id: turma.id, game_id: selectedGame }]);
        if (error && error.code !== '23505') throw error; // ignora duplicados
        
        alert('Jogo adicionado à turma!');
@@ -125,7 +167,7 @@ const TurmaView = () => {
   const handleRemoveStudent = async (studentId) => {
      if (!window.confirm("Deseja realmente remover este aluno? Ele perderá acesso às atividades desta turma.")) return;
      try {
-       const { error } = await supabase.from('turma_alunos').delete().eq('turma_id', turma.id).eq('aluno_id', studentId);
+       const { error } = await supabase.from('memory_agents_turma_alunos').delete().eq('turma_id', turma.id).eq('aluno_id', studentId);
        if (error) throw error;
        
        setAlunosList(alunosList.filter(a => a.id !== studentId));
@@ -188,7 +230,11 @@ const TurmaView = () => {
                </div>
                <div>
                  <p className="text-xs text-slate-400 font-bold uppercase">{user?.role === 'professor' ? 'Média da Turma' : 'Sua Posição'}</p>
-                 <p className="text-xl font-black text-slate-100">{user?.role === 'professor' ? '8.5' : '3º Lugar'}</p>
+                 <p className="text-xl font-black text-slate-100">
+                   {user?.role === 'professor'
+                     ? (turmaStats.avgScore !== null ? turmaStats.avgScore : '—')
+                     : (turmaStats.playerRank !== null ? `${turmaStats.playerRank}º Lugar` : '—')}
+                 </p>
                </div>
             </div>
           </div>
@@ -242,6 +288,7 @@ const TurmaView = () => {
                     author={professorName} 
                     completions={game.plays || 0} 
                     fallbackColor={i % 2 === 0 ? "bg-emerald-600" : "bg-indigo-600"} 
+                    turmaId={turmaId}
                   />
                 ))}
               </div>

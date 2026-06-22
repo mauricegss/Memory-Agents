@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { GraduationCap, BookOpen, Lock, Mail, User, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 const Register = () => {
   const [role, setRole] = useState('aluno');
@@ -11,7 +12,14 @@ const Register = () => {
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user && !isSuccess) {
+      navigate('/');
+    }
+  }, [user, isSuccess, navigate]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -23,28 +31,16 @@ const Register = () => {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: { name, role },
+        },
       });
 
       if (authError) throw authError;
 
       if (authData.user) {
-        // 2. Create profile in public.profiles
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: authData.user.id,
-              name,
-              email,
-              role,
-            },
-          ]);
-
-        if (profileError) throw profileError;
-
         setIsSuccess(true);
-        // Feedback visual antes de redirecionar
-        setTimeout(() => navigate('/login'), 3000);
+        setTimeout(() => navigate('/'), 3000);
       }
     } catch (err) {
       setError(err.message);

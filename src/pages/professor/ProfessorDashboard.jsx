@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import GameCard from '../../components/GameCard';
 
+/* eslint-disable react-hooks/exhaustive-deps */
+
 const ProfessorDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -33,7 +35,7 @@ const ProfessorDashboard = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('turmas')
+        .from('memory_agents_turmas')
         .select('*')
         .eq('professor_id', user.id)
         .order('created_at', { ascending: false });
@@ -43,12 +45,12 @@ const ProfessorDashboard = () => {
       // Busca manual das contagens para evitar problemas de relacionamento via PostgREST
       const turmasFormatadas = await Promise.all((data || []).map(async (t) => {
           const { count: alunosCount } = await supabase
-            .from('turma_alunos')
+            .from('memory_agents_turma_alunos')
             .select('*', { count: 'exact', head: true })
             .eq('turma_id', t.id);
             
           const { count: gamesCount } = await supabase
-            .from('turma_games')
+            .from('memory_agents_turma_games')
             .select('*', { count: 'exact', head: true })
             .eq('turma_id', t.id);
 
@@ -72,7 +74,7 @@ const ProfessorDashboard = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('games')
+        .from('memory_agents_games')
         .select('*')
         .eq('author_id', user.id)
         .order('created_at', { ascending: false });
@@ -91,7 +93,7 @@ const ProfessorDashboard = () => {
     e.preventDefault();
     try {
       const { data, error } = await supabase
-        .from('turmas')
+        .from('memory_agents_turmas')
         .insert([
           { 
             name: newTurma.name, 
@@ -115,7 +117,7 @@ const ProfessorDashboard = () => {
     e.preventDefault();
     try {
       const { data, error } = await supabase
-        .from('turmas')
+        .from('memory_agents_turmas')
         .update({ name: editingTurma.name, code: editingTurma.code })
         .eq('id', editingTurma.id)
         .select();
@@ -134,14 +136,14 @@ const ProfessorDashboard = () => {
     try {
       // 1. Apaga relações pre-existentes (falha de forma silenciosa se a tabela ainda não existir no bd)
       try {
-         await supabase.from('turma_alunos').delete().eq('turma_id', editingTurma.id);
-         await supabase.from('turma_games').delete().eq('turma_id', editingTurma.id);
-      } catch (err) {
+         await supabase.from('memory_agents_turma_alunos').delete().eq('turma_id', editingTurma.id);
+         await supabase.from('memory_agents_turma_games').delete().eq('turma_id', editingTurma.id);
+      } catch {
          console.warn('Tabelas de relacionamento não encontradas. Ignorando limpezas.');
       }
 
       // 2. Apaga a Turma
-      const { data, error } = await supabase.from('turmas').delete().eq('id', editingTurma.id).select();
+      const { data, error } = await supabase.from('memory_agents_turmas').delete().eq('id', editingTurma.id).select();
       if (error) throw error;
       
       if (!data || data.length === 0) {

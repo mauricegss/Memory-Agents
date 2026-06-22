@@ -14,6 +14,7 @@ const DashboardHub = () => {
 
   useEffect(() => {
     fetchHubData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchHubData = async () => {
@@ -22,7 +23,7 @@ const DashboardHub = () => {
       
       // 1. Busca todos os jogos (sem relacionamento para evitar quebras)
       const { data: allGames, error } = await supabase
-        .from('games')
+        .from('memory_agents_games')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -32,7 +33,7 @@ const DashboardHub = () => {
       // 2. Busca nomes dos criadores manualmente
       const authorIds = [...new Set(gamesList.map(g => g.author_id))];
       const { data: profilesData } = await supabase
-        .from('profiles')
+        .from('memory_agents_profiles')
         .select('id, name')
         .in('id', authorIds);
         
@@ -55,15 +56,15 @@ const DashboardHub = () => {
       if (user) {
          let myTurmaIds = [];
          if (user.role === 'aluno') {
-            const { data: alTurmas } = await supabase.from('turma_alunos').select('turma_id').eq('aluno_id', user.id);
+            const { data: alTurmas } = await supabase.from('memory_agents_turma_alunos').select('turma_id').eq('aluno_id', user.id);
             myTurmaIds = (alTurmas || []).map(t => t.turma_id);
          } else {
-            const { data: pfTurmas } = await supabase.from('turmas').select('id').eq('professor_id', user.id);
+            const { data: pfTurmas } = await supabase.from('memory_agents_turmas').select('id').eq('professor_id', user.id);
             myTurmaIds = (pfTurmas || []).map(t => t.id);
          }
          
          if (myTurmaIds.length > 0) {
-             const { data: tgData } = await supabase.from('turma_games').select('game_id').in('turma_id', myTurmaIds);
+             const { data: tgData } = await supabase.from('memory_agents_turma_games').select('game_id').in('turma_id', myTurmaIds);
              const gameIds = (tgData || []).map(t => t.game_id);
              
              const myTurmaGamesList = enrichedGames.filter(g => gameIds.includes(g.id));

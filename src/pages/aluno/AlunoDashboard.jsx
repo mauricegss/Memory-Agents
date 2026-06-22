@@ -4,17 +4,21 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
+/* eslint-disable react-hooks/exhaustive-deps */
+
 const AlunoDashboard = () => {
   const [classCode, setClassCode] = useState('');
   const [turmas, setTurmas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [joinLoading, setJoinLoading] = useState(false);
+  const [matchCount, setMatchCount] = useState(0);
   const navigate = useNavigate();
   const { user } = useAuth();
 
   useEffect(() => {
     if (user) {
       fetchMinhasTurmas();
+      fetchMatchCount();
     }
   }, [user]);
 
@@ -22,7 +26,7 @@ const AlunoDashboard = () => {
     try {
       setLoading(true);
       const { data: relations } = await supabase
-        .from('turma_alunos')
+        .from('memory_agents_turma_alunos')
         .select('turma_id')
         .eq('aluno_id', user.id);
         
@@ -34,7 +38,7 @@ const AlunoDashboard = () => {
       const tIds = relations.map(r => r.turma_id);
       
       const { data: turmasData, error } = await supabase
-        .from('turmas')
+        .from('memory_agents_turmas')
         .select('id, name, code, professor_id')
         .in('id', tIds);
         
@@ -49,13 +53,25 @@ const AlunoDashboard = () => {
     }
   };
 
+  const fetchMatchCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('memory_agents_matches')
+        .select('*', { count: 'exact', head: true })
+        .eq('player_id', user.id);
+      if (!error) setMatchCount(count || 0);
+    } catch {
+      setMatchCount(0);
+    }
+  };
+
   const handleJoin = async () => {
     if (!classCode.trim() || !user) return;
     try {
       setJoinLoading(true);
       
       const { data: turmaData, error: turmaError } = await supabase
-        .from('turmas')
+        .from('memory_agents_turmas')
         .select('*')
         .eq('code', classCode.trim())
         .single();
@@ -66,7 +82,7 @@ const AlunoDashboard = () => {
       }
       
       const { error: joinError } = await supabase
-        .from('turma_alunos')
+        .from('memory_agents_turma_alunos')
         .insert([{ turma_id: turmaData.id, aluno_id: user.id }]);
         
       if (joinError && joinError.code !== '23505') { 
@@ -159,8 +175,8 @@ const AlunoDashboard = () => {
               <p className="text-xs font-bold text-slate-500 uppercase tracking-tighter mt-2">Turmas Ativas</p>
             </div>
             <div className="text-center py-6 bg-slate-950 rounded-2xl border border-slate-800/50">
-              <span className="text-4xl font-black text-emerald-500">0</span>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-tighter mt-2">Relatórios</p>
+              <span className="text-4xl font-black text-emerald-500">{matchCount}</span>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-tighter mt-2">Partidas Jogadas</p>
             </div>
           </div>
         </section>
