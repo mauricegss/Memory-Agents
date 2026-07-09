@@ -16,12 +16,17 @@ window.addEventListener('error', (event) => {
 window.addEventListener('unhandledrejection', (event) => {
   const msg = event.reason?.message || '';
   if (msg.includes('Refresh Token Not Found') || msg.includes('Invalid Refresh Token')) {
-    console.warn('Intercepted broken refresh token. Clearing local storage...');
+    console.warn('[Auth] Token corrompido detectado. Limpando sessão e recarregando...');
+    // Limpa a chave fixa usada pelo cliente Supabase
+    localStorage.removeItem('memory-agents-auth');
+    // Também limpa chaves legacy do Supabase, por segurança
     for (let key in localStorage) {
       if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
         localStorage.removeItem(key);
       }
     }
+    // Recarrega a página para restaurar um estado limpo
+    window.location.reload();
   }
 });
 

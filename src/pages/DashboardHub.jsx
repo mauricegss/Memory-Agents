@@ -19,24 +19,29 @@ const DashboardHub = () => {
 
   const fetchHubData = async () => {
     try {
+      console.log('[DashboardHub] fetchHubData iniciado. User:', user?.id);
       setLoading(true);
       
+      console.log('[DashboardHub] Buscando memory_agents_games...');
       // 1. Busca todos os jogos (sem relacionamento para evitar quebras)
       const { data: allGames, error } = await supabase
         .from('memory_agents_games')
         .select('*')
         .order('created_at', { ascending: false });
 
+      console.log('[DashboardHub] memory_agents_games retornado:', { count: allGames?.length, error });
       if (error) throw error;
       const gamesList = allGames || [];
 
       // 2. Busca nomes dos criadores manualmente
+      console.log('[DashboardHub] Buscando perfis de autores...');
       const authorIds = [...new Set(gamesList.map(g => g.author_id))];
       const { data: profilesData } = await supabase
         .from('memory_agents_profiles')
         .select('id, name')
         .in('id', authorIds);
         
+      console.log('[DashboardHub] perfis retornados:', profilesData?.length);
       const profileMap = (profilesData || []).reduce((acc, p) => ({...acc, [p.id]: p.name }), {});
       
       // Enriquece
@@ -56,14 +61,18 @@ const DashboardHub = () => {
       if (user) {
          let myTurmaIds = [];
          if (user.role === 'aluno') {
+            console.log('[DashboardHub] Buscando turmas do aluno...');
             const { data: alTurmas } = await supabase.from('memory_agents_turma_alunos').select('turma_id').eq('aluno_id', user.id);
             myTurmaIds = (alTurmas || []).map(t => t.turma_id);
          } else {
+            console.log('[DashboardHub] Buscando turmas do professor...');
             const { data: pfTurmas } = await supabase.from('memory_agents_turmas').select('id').eq('professor_id', user.id);
             myTurmaIds = (pfTurmas || []).map(t => t.id);
          }
          
+         console.log('[DashboardHub] turmas encontradas:', myTurmaIds);
          if (myTurmaIds.length > 0) {
+             console.log('[DashboardHub] Buscando jogos das turmas...');
              const { data: tgData } = await supabase.from('memory_agents_turma_games').select('game_id').in('turma_id', myTurmaIds);
              const gameIds = (tgData || []).map(t => t.game_id);
              
@@ -76,12 +85,14 @@ const DashboardHub = () => {
          setTurmaGames([]);
       }
       
+      console.log('[DashboardHub] fetchHubData concluído com sucesso!');
     } catch (error) {
-      console.error('Erro ao buscar dados do hub:', error);
+      console.error('[DashboardHub] Erro ao buscar dados do hub:', error);
       setRecentGames([]);
       setPopularGames([]);
       setTurmaGames([]);
     } finally {
+      console.log('[DashboardHub] Finalizando loading (setLoading(false))...');
       setLoading(false);
     }
   };
