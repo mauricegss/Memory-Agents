@@ -1,60 +1,47 @@
 import React, { useRef } from 'react';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 
-const GameShelf = ({ title, children, showMoreLink }) => {
+const GameShelf = ({ title, children, icon }) => {
   const scrollRef = useRef(null);
 
-  const scrollLeft = () => {
+  const scroll = (dir) => {
     if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: -600, behavior: 'smooth' });
-    }
-  };
-
-  const scrollRight = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: 600, behavior: 'smooth' });
+      scrollRef.current.scrollBy({ left: dir * 600, behavior: 'smooth' });
     }
   };
 
   return (
-    <section className="space-y-1 relative group/shelf">
-      <div className="flex items-center justify-between px-2">
-        <h3 className="text-2xl font-bold text-slate-100 tracking-tight">{title}</h3>
-        {showMoreLink && (
-          <button className="text-sm font-bold text-slate-400 hover:text-slate-100 transition-colors">
-            Ver Tudo
-          </button>
-        )}
+    <section className="space-y-2 relative group/shelf">
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          {icon && <span>{icon}</span>}
+          <h3 className="text-lg font-black text-slate-700">{title}</h3>
+        </div>
       </div>
-      
+
       <div className="relative">
-        <button 
-          onClick={scrollLeft}
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-slate-800 shadow-lg p-3 rounded-full border border-slate-700 text-slate-300 opacity-0 group-hover/shelf:opacity-100 transition-all hover:bg-slate-700 hover:scale-110 hidden md:block"
+        <button
+          onClick={() => scroll(-1)}
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 bg-white shadow-lg p-2 rounded-full border-2 border-blue-100 text-blue-500 opacity-0 group-hover/shelf:opacity-100 transition-all hover:bg-blue-50 hover:scale-110 hidden md:block"
         >
-          <ChevronLeft size={24} />
+          <ChevronLeft size={20} />
         </button>
 
-        <div 
+        <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto pb-1 pt-1 scrollbar-hide px-2 snap-x snap-mandatory"
+          className="flex gap-4 overflow-x-auto pb-2 pt-1 scrollbar-hide px-1 snap-x snap-mandatory"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {children}
         </div>
 
-        <button 
-          onClick={scrollRight}
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-slate-800 shadow-lg p-3 rounded-full border border-slate-700 text-slate-300 opacity-0 group-hover/shelf:opacity-100 transition-all hover:bg-slate-700 hover:scale-110 hidden md:block"
+        <button
+          onClick={() => scroll(1)}
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 bg-white shadow-lg p-2 rounded-full border-2 border-blue-100 text-blue-500 opacity-0 group-hover/shelf:opacity-100 transition-all hover:bg-blue-50 hover:scale-110 hidden md:block"
         >
-          <ChevronRight size={24} />
+          <ChevronRight size={20} />
         </button>
       </div>
-      <style dangerouslySetInnerHTML={{__html: `
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-      `}} />
     </section>
   );
 };

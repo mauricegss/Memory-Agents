@@ -2,168 +2,165 @@ import React, { useState, useEffect } from 'react';
 import GameCard from '../components/GameCard';
 import GameShelf from '../components/GameShelf';
 import { supabase } from '../lib/supabase';
-import { Loader2, Library, Users } from 'lucide-react';
+import { Loader2, Library, Users, Sparkles, BookOpen } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const DashboardHub = () => {
   const { user } = useAuth();
-  const [recentGames, setRecentGames] = useState([]);
+  const [recentGames,  setRecentGames]  = useState([]);
   const [popularGames, setPopularGames] = useState([]);
-  const [turmaGames, setTurmaGames] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [turmaGames,   setTurmaGames]   = useState([]);
+  const [loading,      setLoading]      = useState(true);
 
   useEffect(() => {
     fetchHubData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchHubData = async () => {
     try {
-      console.log('[DashboardHub] fetchHubData iniciado. User:', user?.id);
       setLoading(true);
-      
-      console.log('[DashboardHub] Buscando memory_agents_games...');
-      // 1. Busca todos os jogos (sem relacionamento para evitar quebras)
+
       const { data: allGames, error } = await supabase
         .from('memory_agents_games')
         .select('*')
         .order('created_at', { ascending: false });
 
-      console.log('[DashboardHub] memory_agents_games retornado:', { count: allGames?.length, error });
       if (error) throw error;
       const gamesList = allGames || [];
 
-      // 2. Busca nomes dos criadores manualmente
-      console.log('[DashboardHub] Buscando perfis de autores...');
       const authorIds = [...new Set(gamesList.map(g => g.author_id))];
       const { data: profilesData } = await supabase
         .from('memory_agents_profiles')
         .select('id, name')
         .in('id', authorIds);
-        
-      console.log('[DashboardHub] perfis retornados:', profilesData?.length);
-      const profileMap = (profilesData || []).reduce((acc, p) => ({...acc, [p.id]: p.name }), {});
-      
-      // Enriquece
-      const enrichedGames = gamesList.map(g => ({
-         ...g,
-         authorName: profileMap[g.author_id] || 'Professor'
-      }));
 
-      // Adicionados Recentemente
-      setRecentGames(enrichedGames.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10));
-      
-      // Mais Jogados (Completudes)
-      const popular = [...enrichedGames].sort((a,b) => (b.plays || 0) - (a.plays || 0)).slice(0, 10);
-      setPopularGames(popular);
-      
-      // Seções da Turma
+      const profileMap = (profilesData || []).reduce((acc, p) => ({ ...acc, [p.id]: p.name }), {});
+      const enrichedGames = gamesList.map(g => ({ ...g, authorName: profileMap[g.author_id] || 'Professor' }));
+
+      setRecentGames(enrichedGames.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10));
+      setPopularGames([...enrichedGames].sort((a, b) => (b.plays || 0) - (a.plays || 0)).slice(0, 10));
+
       if (user) {
-         let myTurmaIds = [];
-         if (user.role === 'aluno') {
-            console.log('[DashboardHub] Buscando turmas do aluno...');
-            const { data: alTurmas } = await supabase.from('memory_agents_turma_alunos').select('turma_id').eq('aluno_id', user.id);
-            myTurmaIds = (alTurmas || []).map(t => t.turma_id);
-         } else {
-            console.log('[DashboardHub] Buscando turmas do professor...');
-            const { data: pfTurmas } = await supabase.from('memory_agents_turmas').select('id').eq('professor_id', user.id);
-            myTurmaIds = (pfTurmas || []).map(t => t.id);
-         }
-         
-         console.log('[DashboardHub] turmas encontradas:', myTurmaIds);
-         if (myTurmaIds.length > 0) {
-             console.log('[DashboardHub] Buscando jogos das turmas...');
-             const { data: tgData } = await supabase.from('memory_agents_turma_games').select('game_id').in('turma_id', myTurmaIds);
-             const gameIds = (tgData || []).map(t => t.game_id);
-             
-             const myTurmaGamesList = enrichedGames.filter(g => gameIds.includes(g.id));
-             setTurmaGames(myTurmaGamesList);
-         } else {
-             setTurmaGames([]);
-         }
+        let myTurmaIds = [];
+        if (user.role === 'aluno') {
+          const { data: alTurmas } = await supabase.from('memory_agents_turma_alunos').select('turma_id').eq('aluno_id', user.id);
+          myTurmaIds = (alTurmas || []).map(t => t.turma_id);
+        } else {
+          const { data: pfTurmas } = await supabase.from('memory_agents_turmas').select('id').eq('professor_id', user.id);
+          myTurmaIds = (pfTurmas || []).map(t => t.id);
+        }
+        if (myTurmaIds.length > 0) {
+          const { data: tgData } = await supabase.from('memory_agents_turma_games').select('game_id').in('turma_id', myTurmaIds);
+          const gameIds = (tgData || []).map(t => t.game_id);
+          setTurmaGames(enrichedGames.filter(g => gameIds.includes(g.id)));
+        } else {
+          setTurmaGames([]);
+        }
       } else {
-         setTurmaGames([]);
+        setTurmaGames([]);
       }
-      
-      console.log('[DashboardHub] fetchHubData concluído com sucesso!');
     } catch (error) {
-      console.error('[DashboardHub] Erro ao buscar dados do hub:', error);
+      console.error('[DashboardHub] Erro:', error);
       setRecentGames([]);
       setPopularGames([]);
       setTurmaGames([]);
     } finally {
-      console.log('[DashboardHub] Finalizando loading (setLoading(false))...');
       setLoading(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Loader2 className="animate-spin text-indigo-500" size={48} />
-        <p className="text-slate-400 font-bold">Carregando catálogo de jogos...</p>
+      <div className="flex flex-col items-center justify-center flex-1 gap-3">
+        <Loader2 className="animate-spin text-blue-600" size={44} />
+        <p className="text-blue-500 font-black text-sm">Carregando jogos...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 py-4 max-w-7xl mx-auto flex flex-col justify-center min-h-[70vh]">
+    <div className="flex-1 overflow-auto scrollbar-thin space-y-6 min-h-0">
+      {/* Hero banner */}
+      {user ? (
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 rounded-3xl p-6 sm:p-7 text-white shadow-lg shadow-blue-200/50 flex items-center justify-between relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-2 backdrop-blur-xs">
+              <Sparkles size={13} /> {user.role === 'professor' ? 'Painel do Educador' : 'Pronto para Aprender'}
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Olá, {user.name?.split(' ')[0]}! 👋</h2>
+            <p className="text-blue-100 text-xs sm:text-sm mt-1 max-w-md">Escolha um jogo abaixo para desafiar o robô inteligente e treinar sua memória.</p>
+          </div>
+          <div className="text-5xl sm:text-6xl select-none hidden sm:block">🧠</div>
+        </div>
+      ) : (
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-blue-200/50 flex items-center justify-between relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-2 backdrop-blur-xs">
+              ✨ Bem-vindo ao MemoryAgents
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Jogos da Memória com IA Educacional</h2>
+            <p className="text-blue-100 text-xs sm:text-sm mt-1 max-w-md">Treine com adversários inteligentes heurísticos e probabilísticos.</p>
+          </div>
+          <div className="text-5xl sm:text-6xl select-none hidden sm:block">🤖</div>
+        </div>
+      )}
+
       {recentGames.length === 0 ? (
-        <div className="bg-slate-900 border border-dashed border-slate-800 rounded-3xl p-12 text-center mt-12">
-           <div className="bg-slate-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-500">
-              <Library size={32} />
-           </div>
-           <h4 className="text-slate-300 font-bold mb-1">Nenhum jogo encontrado</h4>
-           <p className="text-slate-500 text-sm">Ainda não há jogos publicados na plataforma.</p>
+        <div className="bg-white border-2 border-dashed border-blue-200 rounded-3xl p-12 text-center shadow-xs">
+          <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl">
+            📚
+          </div>
+          <h4 className="text-slate-800 font-black mb-1 text-lg">Nenhum jogo disponível ainda</h4>
+          <p className="text-slate-400 text-xs">Aguarde um professor criar jogos ou faça login como professor para adicionar novos desafios.</p>
         </div>
       ) : (
         <>
-          <GameShelf title="Mais Jogados (Global)">
+          <GameShelf title="⭐ Mais Jogados" icon={null}>
             {popularGames.map((game, i) => (
-              <GameCard 
-                key={`pop-${game.id}`} 
-                id={game.id} 
-                title={game.title} 
-                author={game.authorName} 
+              <GameCard
+                key={`pop-${game.id}`}
+                id={game.id}
+                title={game.title}
+                author={game.authorName}
                 authorId={game.author_id}
-                completions={game.plays || 0} 
-                fallbackColor={i % 2 === 0 ? "bg-purple-600" : "bg-indigo-600"} 
+                completions={game.plays || 0}
+                fallbackColor={i % 3 === 0 ? 'bg-blue-500' : i % 3 === 1 ? 'bg-indigo-500' : 'bg-sky-500'}
               />
             ))}
           </GameShelf>
 
           {user && turmaGames.length > 0 && (
-            <GameShelf title="Atividades das Minhas Turmas" icon={<Users className="text-emerald-400" />}>
+            <GameShelf title="🏫 Atividades das Minhas Turmas">
               {turmaGames.map((game, i) => (
-                <GameCard 
-                  key={`turma-${game.id}`} 
-                  id={game.id} 
-                  title={game.title} 
-                  author={game.authorName} 
+                <GameCard
+                  key={`turma-${game.id}`}
+                  id={game.id}
+                  title={game.title}
+                  author={game.authorName}
                   authorId={game.author_id}
-                  completions={game.plays || 0} 
-                  fallbackColor={i % 2 === 0 ? "bg-emerald-600" : "bg-teal-600"} 
+                  completions={game.plays || 0}
+                  fallbackColor={i % 2 === 0 ? 'bg-emerald-500' : 'bg-teal-500'}
                 />
               ))}
             </GameShelf>
           )}
 
-          <GameShelf title="Adicionados Recentemente">
+          <GameShelf title="🆕 Adicionados Recentemente">
             {recentGames.map((game, i) => (
-              <GameCard 
-                key={`rec-${game.id}`} 
-                id={game.id} 
-                title={game.title} 
-                author={game.authorName} 
+              <GameCard
+                key={`rec-${game.id}`}
+                id={game.id}
+                title={game.title}
+                author={game.authorName}
                 authorId={game.author_id}
-                completions={game.plays || 0} 
-                fallbackColor={i % 2 === 0 ? "bg-cyan-600" : "bg-blue-600"} 
+                completions={game.plays || 0}
+                fallbackColor={i % 3 === 0 ? 'bg-cyan-500' : i % 3 === 1 ? 'bg-blue-400' : 'bg-violet-500'}
               />
             ))}
           </GameShelf>
         </>
       )}
-
     </div>
   );
 };

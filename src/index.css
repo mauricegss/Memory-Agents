@@ -1,32 +1,248 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Estilos globais - Tema Escuro */
+/* ============================================
+   Design System — Memory Agents (Tema Infantil & Educacional)
+   Paleta: Branco / Azul / Céu
+   ============================================ */
+
+:root {
+  --blue-primary:   #2563EB;
+  --blue-light:     #EFF6FF;
+  --blue-mid:       #DBEAFE;
+  --blue-border:    #BFDBFE;
+  --blue-hover:     #1D4ED8;
+  --card-back:      #2563EB;
+  --card-back-alt:  #1D4ED8;
+  --card-front:     #FFFFFF;
+  --card-matched:   #D1FAE5;
+  --card-matched-border: #6EE7B7;
+  --robot-primary:  #3B82F6;
+  --robot-detail:   #1D4ED8;
+}
+
+/* === Base Global === */
+html, body {
+  height: 100%;
+  overflow: hidden; /* Nunca rolar a página inteira */
+}
+
 body {
-  @apply bg-slate-950 text-slate-200 antialiased;
+  font-family: 'Nunito', 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #F0F7FF 0%, #E8F2FE 50%, #F8FAFC 100%);
+  color: #334155;
   margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Esconder barra de rolagem nas prateleiras de jogos */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-/* Efeito de elevação dos Cards */
+/* === Scrollbar nas prateleiras de jogos === */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* === Scrollbar bonita para áreas internas === */
+.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: #EFF6FF; border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #BFDBFE; border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #93C5FD; }
+
+@layer components {
+  /* === Input base === */
+  .input-field {
+    width: 100%;
+    background-color: #FFFFFF;
+    border: 1.5px solid #BFDBFE;
+    border-radius: 1rem;
+    padding: 0.75rem 1rem;
+    color: #334155;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+    outline: none;
+  }
+  .input-field::placeholder {
+    color: #94A3B8;
+    font-weight: 500;
+  }
+  .input-field:focus {
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  }
+
+  /* Inputs com ícone à esquerda */
+  .input-with-icon {
+    padding-left: 3rem !important;
+  }
+
+  /* === Botões base === */
+  .btn-primary {
+    background-color: #2563EB;
+    color: #FFFFFF;
+    font-weight: 800;
+    border-radius: 1rem;
+    padding: 0.75rem 1.25rem;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .btn-primary:hover {
+    background-color: #1D4ED8;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-secondary {
+    background-color: #FFFFFF;
+    color: #2563EB;
+    border: 1.5px solid #BFDBFE;
+    font-weight: 800;
+    border-radius: 1rem;
+    padding: 0.75rem 1.25rem;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .btn-secondary:hover {
+    background-color: #EFF6FF;
+    border-color: #93C5FD;
+    color: #1D4ED8;
+    transform: translateY(-1px);
+  }
+}
+
+/* === Cards de Jogo === */
 .game-card {
-  @apply transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-indigo-500/20 cursor-pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+.game-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -6px rgba(37, 99, 235, 0.15);
 }
 
+/* === Animação de Entrada de Página === */
 .page-transition {
-  animation: fadeIn 0.5s ease-out;
+  animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+/* === 3D Flip das Cartas === */
+.preserve-3d   { transform-style: preserve-3d; }
+.backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+
+/* === Preview Glow — cartas reveladas antes do jogo === */
+@keyframes previewPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.3); }
+  50%       { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
+}
+.preview-glow {
+  animation: previewPulse 1.5s ease-in-out infinite;
+}
+
+/* === Robô — Caminhar === */
+@keyframes robotWalk {
+  0%   { transform: translateY(0) rotate(-1deg); }
+  25%  { transform: translateY(-4px) rotate(1deg); }
+  50%  { transform: translateY(0) rotate(-1deg); }
+  75%  { transform: translateY(-4px) rotate(1deg); }
+  100% { transform: translateY(0) rotate(-1deg); }
+}
+.robot-walk {
+  animation: robotWalk 0.5s ease-in-out infinite;
+}
+
+/* === Robô — Idle bounce === */
+@keyframes robotIdle {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-3px); }
+}
+.robot-idle {
+  animation: robotIdle 2s ease-in-out infinite;
+}
+
+/* === Robô — Pensar (shake da cabeça) === */
+@keyframes robotThink {
+  0%, 100% { transform: rotate(0deg); }
+  20%       { transform: rotate(-4deg); }
+  40%       { transform: rotate(4deg); }
+  60%       { transform: rotate(-3deg); }
+  80%       { transform: rotate(3deg); }
+}
+.robot-think {
+  animation: robotThink 0.8s ease-in-out infinite;
+}
+
+/* === Robô — Olho piscando === */
+@keyframes blink {
+  0%, 90%, 100% { transform: scaleY(1); }
+  95%           { transform: scaleY(0.1); }
+}
+.robot-eye {
+  animation: blink 3s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* === Robô — Antena piscando (pensar) === */
+@keyframes antennaPulse {
+  0%, 100% { fill: #FCD34D; }
+  50%       { fill: #F59E0B; filter: drop-shadow(0 0 4px #FCD34D); }
+}
+.antenna-pulse {
+  animation: antennaPulse 0.6s ease-in-out infinite;
+}
+
+/* === Shake (errou) === */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-5px); }
+  40%       { transform: translateX(5px); }
+  60%       { transform: translateX(-5px); }
+  80%       { transform: translateX(5px); }
+}
+.shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+/* === Modal overlay === */
+.modal-overlay {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* === Card de jogo da memória — verso === */
+.memory-card-back {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+}
+
+/* === Responsive grid helper === */
+.game-grid-auto {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(var(--grid-cols, 4), minmax(0, 1fr));
+  grid-auto-rows: 1fr;
 }

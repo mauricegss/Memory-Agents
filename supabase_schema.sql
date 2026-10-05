@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS memory_agents_ai_configs (
   game_id UUID NOT NULL REFERENCES memory_agents_games(id) ON DELETE CASCADE,
   ai_type TEXT NOT NULL DEFAULT 'heuristic'
     CHECK (ai_type IN ('random', 'heuristic', 'mlp', 'reinforcement_learning')),
+  memory_capacity INTEGER NOT NULL DEFAULT 4 CHECK (memory_capacity BETWEEN 1 AND 40),
   memory_decay_rate NUMERIC(4,3) NOT NULL DEFAULT 0.15,
   mistake_rate NUMERIC(4,3) NOT NULL DEFAULT 0.20,
   thinking_delay_ms INTEGER NOT NULL DEFAULT 1500,
@@ -112,6 +113,11 @@ CREATE TABLE IF NOT EXISTS memory_agents_turmas (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Migração idempotente para bases já criadas antes do parâmetro de capacidade.
+ALTER TABLE memory_agents_ai_configs
+  ADD COLUMN IF NOT EXISTS memory_capacity INTEGER NOT NULL DEFAULT 4
+  CHECK (memory_capacity BETWEEN 1 AND 40);
 
 DO $$
 BEGIN

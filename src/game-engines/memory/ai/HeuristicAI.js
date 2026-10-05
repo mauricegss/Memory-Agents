@@ -1,4 +1,4 @@
-import { AIStrategyBase } from './AIStrategyBase';
+import { AIStrategyBase } from './AIStrategyBase.js';
 
 export class HeuristicAI extends AIStrategyBase {
   constructor(config = {}) {
@@ -6,16 +6,26 @@ export class HeuristicAI extends AIStrategyBase {
     this.memory = new Map(); // position -> pairId
     this.memoryDecayRate = config.memoryDecayRate ?? 0.15;
     this.mistakeRate = config.mistakeRate ?? 0.20;
+    this.memoryCapacity = config.memoryCapacity ?? 4;
+    this.clock = 0;
   }
 
   onCardRevealed(index, card) {
-    this.memory.set(index, card.pairId);
+    this.clock += 1;
+    this.memory.set(index, { pairId: card.pairId, lastSeen: this.clock, strength: 1 });
     
     // Chance de esquecer outras cartas que estão na memória
-    for (const key of this.memory.keys()) {
-      if (key !== index && Math.random() < this.memoryDecayRate) {
+    for (const [key, item] of this.memory.entries()) {
+      item.strength *= (1 - this.memoryDecayRate);
+      if (key !== index && Math.random() > item.strength) {
         this.memory.delete(key);
       }
+    }
+
+    // Limite explícito de itens: a IA não ganha memória perfeita apenas por observar.
+    while (this.memory.size > this.memoryCapacity) {
+      const oldest = [...this.memory.entries()].sort((a, b) => a[1].lastSeen - b[1].lastSeen)[0][0];
+      this.memory.delete(oldest);
     }
   }
 
@@ -45,8 +55,8 @@ export class HeuristicAI extends AIStrategyBase {
       const firstCardIdx = flippedIndices[0];
       const targetPairId = gameState.cards[firstCardIdx].pairId;
       
-      for (const [idx, pairId] of this.memory.entries()) {
-        if (pairId === targetPairId && idx !== firstCardIdx && !gameState.cards[idx].isMatched) {
+      for (const [idx, item] of this.memory.entries()) {
+        if (item.pairId === targetPairId && idx !== firstCardIdx && !gameState.cards[idx].isMatched) {
           return idx; // Achou o par!
         }
       }
@@ -61,7 +71,7 @@ export class HeuristicAI extends AIStrategyBase {
         
     for (let i = 0; i < memoryArr.length; i++) {
       for (let j = i + 1; j < memoryArr.length; j++) {
-        if (memoryArr[i][1] === memoryArr[j][1]) {
+        if (memoryArr[i][1].pairId === memoryArr[j][1].pairId) {
           knownPair = [memoryArr[i][0], memoryArr[j][0]];
           break;
         }

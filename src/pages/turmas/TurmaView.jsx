@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Users, Trophy, BarChart3, Loader2, Plus, X } from 'lucide-react';
+import { ChevronLeft, Users, Trophy, BarChart3, Loader2, Plus, X, Trash2, ArrowLeft, Gamepad2, GraduationCap } from 'lucide-react';
 import GameCard from '../../components/GameCard';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { supabase } from '../../lib/supabase';
 
 const TurmaView = () => {
   const { turmaId } = useParams();
   const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   
   const [turma, setTurma] = useState(null);
@@ -25,6 +27,9 @@ const TurmaView = () => {
   const [selectedGame, setSelectedGame] = useState('');
   const [addingGame, setAddingGame] = useState(false);
   const [turmaStats, setTurmaStats] = useState({ avgScore: null, playerRank: null, totalMatches: 0 });
+
+  // State para confirmação de remoção de aluno
+  const [studentToRemove, setStudentToRemove] = useState(null);
 
   useEffect(() => {
     fetchTurmaData();
@@ -52,7 +57,7 @@ const TurmaView = () => {
       
       setProfessorName(profData?.name || 'Professor(a)');
 
-      // Alunos vinculados (Substitui o request de Count anterior para mapeamento completo)
+      // Alunos vinculados
       const { data: relAlunosData } = await supabase
         .from('memory_agents_turma_alunos')
         .select('aluno_id')
@@ -123,12 +128,10 @@ const TurmaView = () => {
       // Ranking do aluno (para aluno)
       let playerRank = null;
       if (user && user.role === 'aluno') {
-        // Agrupa scores por jogador (soma total)
         const scoresByPlayer = {};
         matches.forEach(m => {
           scoresByPlayer[m.player_id] = (scoresByPlayer[m.player_id] || 0) + (m.player_score || 0);
         });
-        // Ordena do maior para o menor
         const ranked = Object.entries(scoresByPlayer)
           .sort(([, a], [, b]) => b - a)
           .map(([id]) => id);
@@ -154,85 +157,96 @@ const TurmaView = () => {
        const { error } = await supabase.from('memory_agents_turma_games').insert([{ turma_id: turma.id, game_id: selectedGame }]);
        if (error && error.code !== '23505') throw error; // ignora duplicados
        
-       alert('Jogo adicionado à turma!');
+       showSuccess('Jogo adicionado à turma com sucesso! 🎮');
        setShowAddGame(false);
-       fetchTurmaData(); // Recarrega para exibir
+       setSelectedGame('');
+       fetchTurmaData();
      } catch (err) {
-       alert('Erro ao vincular jogo: ' + err.message);
+       showError('Erro ao vincular jogo: ' + err.message);
      } finally {
        setAddingGame(false);
      }
   };
 
-  const handleRemoveStudent = async (studentId) => {
-     if (!window.confirm("Deseja realmente remover este aluno? Ele perderá acesso às atividades desta turma.")) return;
+  const handleConfirmRemoveStudent = async () => {
+     if (!studentToRemove) return;
      try {
-       const { error } = await supabase.from('memory_agents_turma_alunos').delete().eq('turma_id', turma.id).eq('aluno_id', studentId);
+       const { error } = await supabase.from('memory_agents_turma_alunos').delete().eq('turma_id', turma.id).eq('aluno_id', studentToRemove.id);
        if (error) throw error;
        
-       setAlunosList(alunosList.filter(a => a.id !== studentId));
+       setAlunosList(alunosList.filter(a => a.id !== studentToRemove.id));
        setStudentCount(prev => prev - 1);
+       showSuccess(`Aluno "${studentToRemove.name}" removido da turma.`);
+       setStudentToRemove(null);
      } catch (err) {
-       alert('Erro ao remover aluno: ' + err.message);
+       showError('Erro ao remover aluno: ' + err.message);
      }
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Loader2 className="animate-spin text-indigo-500" size={48} />
-        <p className="text-slate-400 font-bold">Carregando turma...</p>
+      <div className="flex flex-col items-center justify-center flex-1 gap-3">
+        <Loader2 className="animate-spin text-blue-600" size={44} />
+        <p className="text-blue-500 font-black text-sm">Carregando dados da turma...</p>
       </div>
     );
   }
 
   if (!turma) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="bg-slate-900 border border-dashed border-slate-800 p-12 rounded-3xl text-center">
-          <h2 className="text-2xl font-black text-slate-100 mb-2">Turma não encontrada</h2>
-          <p className="text-slate-400 mb-6">O código ou ID fornecido não corresponde a nenhuma turma ativa.</p>
-          <Link to="/" className="text-indigo-400 font-bold hover:underline">Voltar ao Início</Link>
+      <div className="flex flex-col items-center justify-center flex-1 gap-4">
+        <div className="bg-white border-2 border-dashed border-blue-200 p-10 rounded-3xl text-center max-w-md shadow-sm">
+          <h2 className="text-2xl font-black text-slate-800 mb-2">Turma não encontrada</h2>
+          <p className="text-slate-500 text-sm mb-6">O código ou ID fornecido não corresponde a nenhuma turma ativa.</p>
+          <Link to="/" className="btn-primary py-2.5 px-5 text-sm">Voltar ao Início</Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto py-6">
-      {/* Header Estilo Moodle / Roblox Group */}
-      <div className="bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-md shadow-black/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <Link to="/" className="inline-flex items-center gap-2 text-slate-400 hover:text-indigo-400 font-bold mb-6 transition-colors">
-          <ChevronLeft size={20} /> Voltar ao Início
-        </Link>
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+    <div className="flex-1 overflow-auto scrollbar-thin min-h-0 space-y-6">
+      {/* Header Estilo Card Educacional */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-blue-100 shadow-sm relative overflow-hidden">
+        <div className="flex items-center justify-between mb-4">
+          <Link to={user?.role === 'professor' ? '/professor' : '/aluno'} className="inline-flex items-center gap-1.5 text-slate-500 hover:text-blue-600 font-bold text-sm transition-colors">
+            <ChevronLeft size={18} /> Voltar ao Painel
+          </Link>
+          <span className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider">
+            Código: {turma.code || "TURMA"}
+          </span>
+        </div>
+
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="bg-indigo-900/50 border border-indigo-800 text-indigo-300 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider">{(turma.code || "").split('-')[0] || "TURMA"}</span>
-              <span className="flex items-center gap-1 text-slate-400 text-sm font-medium"><Users size={16} /> {studentCount} Aluno{studentCount !== 1 && 's'}</span>
+            <div className="flex items-center gap-2 text-slate-500 text-xs font-bold mb-1">
+              <GraduationCap size={16} className="text-blue-500" />
+              <span>Professor(a): <strong className="text-slate-700">{professorName}</strong></span>
+              <span>•</span>
+              <span className="flex items-center gap-1"><Users size={14} /> {studentCount} Aluno{studentCount !== 1 && 's'}</span>
             </div>
-            <h1 className="text-4xl font-black text-slate-100 tracking-tight">{turma.name}</h1>
-            <p className="text-slate-400 mt-2 font-medium">Professor(a): <span className="font-bold text-slate-300">{professorName}</span></p>
+            <h1 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight">{turma.name}</h1>
           </div>
-          <div className="flex flex-col items-end gap-3">
-            {user?.role === 'professor' && (
+
+          <div className="flex items-center gap-3">
+            {user?.role === 'professor' && user?.id === turma.professor_id && (
               <button 
                 onClick={() => navigate(`/professor/relatorios?turma=${turma.id}`)}
-                className="bg-indigo-600/20 border border-indigo-500/50 text-indigo-400 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-600 hover:text-white transition-all text-sm mb-2 shadow-sm"
+                className="btn-secondary py-2.5 px-4 text-xs font-black flex items-center gap-2"
               >
-                <BarChart3 size={18} /> Ver Relatórios da Turma
+                <BarChart3 size={16} /> Relatórios da Turma
               </button>
             )}
-            <div className="flex items-center gap-4 bg-slate-800 p-4 rounded-2xl border border-slate-700">
-               <div className="bg-amber-900/40 p-3 rounded-xl text-amber-400">
-                 <Trophy size={24} />
+
+            <div className="flex items-center gap-3 bg-blue-50/80 px-4 py-2.5 rounded-2xl border border-blue-100">
+               <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">
+                 <Trophy size={20} />
                </div>
                <div>
-                 <p className="text-xs text-slate-400 font-bold uppercase">{user?.role === 'professor' ? 'Média da Turma' : 'Sua Posição'}</p>
-                 <p className="text-xl font-black text-slate-100">
+                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-wider">{user?.role === 'professor' ? 'Média da Turma' : 'Sua Posição'}</p>
+                 <p className="text-lg font-black text-slate-800">
                    {user?.role === 'professor'
-                     ? (turmaStats.avgScore !== null ? turmaStats.avgScore : '—')
+                     ? (turmaStats.avgScore !== null ? `${turmaStats.avgScore} pts` : '—')
                      : (turmaStats.playerRank !== null ? `${turmaStats.playerRank}º Lugar` : '—')}
                  </p>
                </div>
@@ -241,33 +255,43 @@ const TurmaView = () => {
         </div>
       </div>
 
-      {/* Lista de Atividades (Jogos) Associadas à Turma */}
-      <div className="space-y-6">
-        <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 mb-6 max-w-fit">
+      {/* Navegação entre Abas */}
+      <div className="space-y-4">
+        <div className="flex bg-white border border-blue-100 rounded-2xl p-1 max-w-fit shadow-xs">
            <button 
              onClick={() => setActiveTab('atividades')}
-             className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'atividades' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+             className={`px-5 py-2 rounded-xl font-black text-xs transition-all cursor-pointer ${
+               activeTab === 'atividades' 
+                 ? 'bg-blue-600 text-white shadow-xs' 
+                 : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+             }`}
            >
-             Atividades da Turma
+             🎮 Atividades ({turmaGames.length})
            </button>
-           {user?.role === 'professor' && (
+           {user?.role === 'professor' && user?.id === turma.professor_id && (
              <button 
                onClick={() => setActiveTab('alunos')}
-               className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'alunos' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+               className={`px-5 py-2 rounded-xl font-black text-xs transition-all cursor-pointer ${
+                 activeTab === 'alunos' 
+                   ? 'bg-blue-600 text-white shadow-xs' 
+                   : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+               }`}
              >
-               Gerenciar Alunos
+               👥 Alunos Matriculados ({studentCount})
              </button>
            )}
         </div>
 
         {activeTab === 'atividades' ? (
-          <>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-slate-100">Jogos Desbloqueados</h2>
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                <Gamepad2 className="text-blue-600" size={20} /> Jogos da Turma
+              </h2>
               {user?.id === turma.professor_id && (
                 <button 
                   onClick={() => setShowAddGame(true)}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-500 transition-colors shadow-md"
+                  className="btn-primary py-2 px-4 text-xs font-black flex items-center gap-1.5"
                 >
                   <Plus size={16} /> Adicionar Jogo
                 </button>
@@ -275,11 +299,19 @@ const TurmaView = () => {
             </div>
             
             {turmaGames.length === 0 ? (
-               <div className="bg-slate-900 border border-dashed border-slate-800 rounded-3xl p-10 text-center">
-                 <p className="text-slate-500">Nenhuma atividade disponível nesta turma ainda.</p>
+               <div className="bg-white border-2 border-dashed border-blue-200 rounded-3xl p-10 text-center shadow-xs">
+                 <p className="text-slate-500 font-bold text-sm">Nenhuma atividade vinculada a esta turma ainda.</p>
+                 {user?.id === turma.professor_id && (
+                   <button 
+                     onClick={() => setShowAddGame(true)}
+                     className="btn-secondary py-2 px-4 text-xs font-black mt-3"
+                   >
+                     Vincular um Jogo Agora
+                   </button>
+                 )}
                </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {turmaGames.map((game, i) => (
                   <GameCard 
                     key={game.id} 
@@ -287,41 +319,46 @@ const TurmaView = () => {
                     title={game.title} 
                     author={professorName} 
                     completions={game.plays || 0} 
-                    fallbackColor={i % 2 === 0 ? "bg-emerald-600" : "bg-indigo-600"} 
+                    fallbackColor={i % 3 === 0 ? "bg-blue-500" : i % 3 === 1 ? "bg-indigo-500" : "bg-sky-500"} 
                     turmaId={turmaId}
                   />
                 ))}
               </div>
             )}
-          </>
+          </div>
         ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
-             <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950">
-               <h3 className="font-bold text-slate-100 flex items-center gap-2"><Users className="text-indigo-500"/> Alunos Matriculados</h3>
-               <span className="bg-slate-800 text-indigo-400 px-3 py-1 rounded-full text-xs font-bold">{studentCount} Aluno(s)</span>
+          <div className="bg-white border border-blue-100 rounded-3xl shadow-sm overflow-hidden">
+             <div className="p-5 border-b border-blue-50 flex justify-between items-center bg-blue-50/40">
+               <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
+                 <Users className="text-blue-600" size={18} /> Lista de Estudantes
+               </h3>
+               <span className="bg-white text-blue-600 border border-blue-200 px-3 py-0.5 rounded-full text-xs font-black">
+                 {studentCount} Aluno(s)
+               </span>
              </div>
+
              {alunosList.length === 0 ? (
-                <div className="p-12 text-center text-slate-500">
-                  Ainda não há alunos participando desta turma.
+                <div className="p-10 text-center text-slate-400 font-medium text-sm">
+                  Nenhum aluno entrou nesta turma ainda. Compartilhe o código <strong>{turma.code}</strong> com a turma!
                 </div>
              ) : (
-                <ul className="divide-y divide-slate-800/50">
+                <ul className="divide-y divide-blue-50">
                   {alunosList.map(aluno => (
-                    <li key={aluno.id} className="p-4 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
-                       <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-indigo-900/50 text-indigo-400 rounded-full flex items-center justify-center font-black uppercase">
+                    <li key={aluno.id} className="p-4 flex items-center justify-between hover:bg-blue-50/30 transition-colors">
+                       <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center font-black uppercase text-sm shadow-xs">
                             {aluno.name ? aluno.name[0] : '?'}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-200">{aluno.name}</p>
-                            <p className="text-xs text-slate-500">{aluno.email}</p>
+                            <p className="font-black text-slate-800 text-sm">{aluno.name}</p>
+                            <p className="text-xs text-slate-400 font-medium">{aluno.email}</p>
                           </div>
                        </div>
                        <button 
-                         onClick={() => handleRemoveStudent(aluno.id)}
-                         className="text-xs font-bold text-rose-500 hover:text-white bg-rose-500/10 hover:bg-rose-600 px-4 py-2 rounded-lg transition-all"
+                         onClick={() => setStudentToRemove(aluno)}
+                         className="text-xs font-black text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1"
                        >
-                         Remover
+                         <Trash2 size={14} /> Remover
                        </button>
                     </li>
                   ))}
@@ -333,41 +370,84 @@ const TurmaView = () => {
 
       {/* Modal Adicionar Jogo */}
       {showAddGame && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2rem] p-8 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-black text-slate-100">Vincular Atividade</h3>
-              <button onClick={() => setShowAddGame(false)} className="text-slate-500 hover:text-white">
-                <X size={24} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white border border-blue-100 w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-xl font-black text-slate-800">Vincular Jogo à Turma</h3>
+              <button onClick={() => setShowAddGame(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-xl">
+                <X size={20} />
               </button>
             </div>
             {myGames.length === 0 ? (
-              <div className="text-center py-4">
-                 <p className="text-slate-400 mb-4">Você ainda não tem nenhum jogo criado.</p>
-                 <Link to="/professor/novo-jogo" className="text-indigo-400 font-bold hover:underline">Ir para Criador de Jogos</Link>
+              <div className="text-center py-4 space-y-3">
+                 <p className="text-slate-500 font-medium text-sm">Você ainda não tem nenhum jogo criado.</p>
+                 <Link to="/professor/novo-jogo" className="btn-primary py-2.5 px-4 text-xs font-black inline-block">
+                   Criar Meu Primeiro Jogo
+                 </Link>
               </div>
             ) : (
               <div className="space-y-4">
-                <label className="block text-sm font-bold text-slate-400">Selecione um dos seus jogos:</label>
-                <select 
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 outline-none"
-                  value={selectedGame}
-                  onChange={(e) => setSelectedGame(e.target.value)}
-                >
-                   <option value="">-- Selecione --</option>
-                   {myGames.map(g => (
-                     <option key={g.id} value={g.id}>{g.title}</option>
-                   ))}
-                </select>
-                <button 
-                  onClick={handleAddGame}
-                  disabled={addingGame || !selectedGame}
-                  className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-500 transition-colors disabled:opacity-50"
-                >
-                  {addingGame ? 'Vinculando...' : 'Vincular Jogo'}
-                </button>
+                <div>
+                  <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-2">
+                    Selecione o Jogo:
+                  </label>
+                  <select 
+                    className="input-field"
+                    value={selectedGame}
+                    onChange={(e) => setSelectedGame(e.target.value)}
+                  >
+                     <option value="">-- Escolha um jogo --</option>
+                     {myGames.map(g => (
+                       <option key={g.id} value={g.id}>{g.title}</option>
+                     ))}
+                  </select>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => setShowAddGame(false)}
+                    className="btn-secondary flex-1 py-3 text-sm font-black"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={handleAddGame}
+                    disabled={addingGame || !selectedGame}
+                    className="btn-primary flex-1 py-3 text-sm font-black"
+                  >
+                    {addingGame ? 'Vinculando...' : 'Confirmar'}
+                  </button>
+                </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmação de remoção de aluno */}
+      {studentToRemove && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white border border-rose-100 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 text-center">
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-lg font-black text-slate-800 mb-1">Remover Aluno?</h3>
+            <p className="text-slate-500 text-xs mb-5">
+              Tem certeza que deseja remover <strong>{studentToRemove.name}</strong> desta turma? O aluno perderá acesso às atividades.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStudentToRemove(null)}
+                className="btn-secondary flex-1 py-2.5 text-xs font-black"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmRemoveStudent}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-black py-2.5 px-4 rounded-2xl text-xs flex-1 transition-all"
+              >
+                Sim, Remover
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -376,4 +456,3 @@ const TurmaView = () => {
 };
 
 export default TurmaView;
-

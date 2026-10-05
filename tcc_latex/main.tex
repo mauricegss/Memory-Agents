@@ -1,0 +1,142 @@
+\documentclass[
+    12pt,
+    openright,
+    twoside,
+    a4paper,
+    english,
+    brazil
+]{abntex2}
+
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{indentfirst}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage[brazilian,hyperpageref]{backref}
+\usepackage[alf]{abntex2cite}
+\usepackage{booktabs}
+\usepackage{multirow}
+
+% Dados do TCC
+\titulo{Memory Agents: Análise Comparativa de Abordagens de Inteligência Artificial para Simulação do Comportamento Humano no Jogo da Memória}
+\autor{Maurice Golin Soares dos Santos}
+\local{Curitiba}
+\data{2026}
+\orientador{Profª. Drª. Helyane Bronoski Borges}
+\instituicao{
+  Universidade Tecnológica Federal do Paraná -- UTFPR
+  \par
+  Departamento Acadêmico de Computação
+  \par
+  Curso de Ciência da Computação}
+\tipotrabalho{Trabalho de Conclusão de Curso}
+\preambulo{Trabalho de Conclusão de Curso apresentado ao Departamento Acadêmico de Computação da Universidade Tecnológica Federal do Paraná como requisito parcial para obtenção do título de Bacharel em Ciência da Computação.}
+
+\begin{document}
+
+\frenchspacing
+\imprimircapa
+\imprimirfolhaderosto*
+
+\begin{resumo}
+Este trabalho apresenta o projeto Memory Agents, uma plataforma web educacional focada no jogo da memória, onde estudantes enfrentam adversários computacionais. O objetivo central é investigar qual paradigma de Inteligência Artificial produz um agente capaz de simular o comportamento cognitivo humano, considerando limitações reais de capacidade, esquecimento e erro de recuperação. A fundamentação teórica baseia-se em estudos cognitivos (Cowan, Ebbinghaus) para estabelecer critérios de humanização. Cinco paradigmas de IA foram avaliados: aleatório, heurístico com memória perfeita, heurístico com memória limitada, aprendizado supervisionado (MLP/KNN) e aprendizado por reforço (Q-Learning). A análise formal demonstra que a abordagem heurística com memória limitada e decaimento cognitivo atende a todos os critérios de simulação humana estipulados. O agente proposto foi implementado e submetido a simulações contra um agente aleatório e contra si mesmo em diferentes níveis de dificuldade (Fácil, Médio, Difícil). Os resultados confirmam as hipóteses estabelecidas, demonstrando o escalonamento da dificuldade e a coerência do decaimento cognitivo na taxa de vitória e na duração das partidas, validando-o como modelo promissor para aplicação educacional.
+\vspace{\onelineskip}
+\noindent
+\textbf{Palavras-chave}: Jogo da Memória. Inteligência Artificial. Comportamento Humano. Memória de Trabalho.
+\end{resumo}
+
+\textual
+
+\chapter{Introdução}
+
+O \textit{Memory Agents} é uma plataforma web educacional em que docentes criam jogos da memória e estudantes enfrentam um adversário computacional. O objetivo central deste trabalho não é construir o agente mais forte possível: um oponente com acesso irrestrito ao estado do tabuleiro teria memória perfeita e, por isso, representaria um adversário artificialmente invencível e pouco relevante do ponto de vista pedagógico. O desafio de pesquisa é identificar qual paradigma de Inteligência Artificial (IA) produz um agente cujo comportamento se aproxima mais do comportamento humano observado na literatura cognitiva, tornando a partida desafiante, justa e educacionalmente significativa.
+
+Assim, define-se a seguinte questão de pesquisa central: Em que medida as diferentes abordagens de IA disponíveis são capazes de simular o comportamento cognitivo humano no jogo da memória, considerando limitações de capacidade, esquecimento e erro de recuperação? O objetivo geral é comparar paradigmas de inteligência artificial segundo critérios cognitivamente motivados e selecionar, implementar e avaliar o agente mais adequado como adversário na plataforma educacional.
+
+\chapter{Fundamentação Teórica: O Comportamento Humano}
+
+\section{Capacidade da memória de trabalho}
+
+A pergunta fundamental para calibrar qualquer agente adversário é: quantas cartas um jogador humano concentrado consegue reter simultaneamente? A resposta clássica parte de \citeonline{miller1956}, que propôs que a memória imediata comporta aproximadamente $7 \pm 2$ unidades de informação (\textit{chunks}).
+
+\citeonline{cowan2001} e \citeonline{cowan2010} revisaram essa estimativa com experimentos controlando o \textit{chunking}. Quando os itens são não relacionados, o foco de atenção se restringe a aproximadamente $4 \pm 1$ itens. Em uma revisão direta dos dois modelos, \citeonline{morra2024} confirmam que o modelo de Cowan descreve melhor o desempenho humano. Consequentemente, a capacidade de memória do agente no nível médio deve ser calibrada próxima de 4 posições, não de 16 \cite{cowan2001}.
+
+\section{Esquecimento: decaimento e interferência}
+
+A literatura identifica dois mecanismos de esquecimento. O decaimento temporal, medido quantitativamente por \citeonline{peterson1959}, demonstra que a retenção cai drasticamente em poucos segundos sem ensaio mental. A interferência retroativa, demonstrada por \citeonline{keppel1962}, evidencia que novas informações competem com traços já retidos. Revisões contemporâneas \cite{ricker2016} confirmam que decaimento e interferência coexistem.
+
+O modelo matemático clássico é a Curva do Esquecimento de \citeonline{ebbinghaus1885}. A tradução operacional para o agente adversário utiliza decaimento exponencial, modelando interferência a cada nova observação.
+
+\chapter{Análise Comparativa de Paradigmas de IA}
+
+Esta seção avalia paradigmas de IA quanto à capacidade de reproduzir as limitações cognitivas.
+
+\section{Agente aleatório e heurístico com memória perfeita}
+
+O agente aleatório subestima a capacidade humana e serve apenas como piso de referência. Por outro lado, a abordagem de memória perfeita \cite{zwick1993} armazena e recupera posições com 100\% de precisão. Este agente viola sistematicamente as premissas cognitivas, nunca esquecendo nem errando.
+
+\section{Aprendizado supervisionado e por reforço}
+
+Redes neurais (MLP) podem prever probabilidades a partir do histórico \cite{haykin2001, russell2021}. O principal problema destas abordagens no contexto específico é a representação do estado, que muitas vezes não captura a semântica da interferência cognitiva. Semelhantemente, no Aprendizado por Reforço (Q-Learning) \cite{sutton2018}, a tendência do agente é convergir para a política ótima, aproximando-se da memória perfeita \cite{malla2025, kovarik2024}. Para simular um humano falho, requer-se restrição na observação e engenharia de recompensas substancial.
+
+\section{Critérios de humanização e a IA selecionada}
+
+A Tabela \ref{tab:comparacao} resume a análise dos paradigmas frente aos critérios cognitivos \cite{zohaib2018, millington2009}.
+
+\begin{table}[htb]
+\centering
+\caption{Análise comparativa formal dos paradigmas frente aos critérios cognitivos}
+\label{tab:comparacao}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Critério} & \textbf{Aleat.} & \textbf{Mem. Perf.} & \textbf{Heurístico c/ Decay} & \textbf{MLP} & \textbf{Q-L} \\
+\midrule
+Capacidade limitada        & ✗ & ✗ & \checkmark & \textasciitilde & \textasciitilde \\
+Esquecimento por interf. & ✗ & ✗ & \checkmark & ✗ & ✗ \\
+Efeito de recência       & ✗ & ✗ & \checkmark & ✗ & ✗ \\
+Erro de recuperação      & \textasciitilde & ✗ & \checkmark & \textasciitilde & ✗ \\
+Ausência de onisciência    & \checkmark & ✗ & \checkmark & \checkmark & \textasciitilde \\
+Configurabilidade          & \checkmark & ✗ & \checkmark & \textasciitilde & \textasciitilde \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A abordagem selecionada é o agente heurístico com memória limitada e decaimento cognitivo, com níveis definidos em Fácil ($C=2, d=0.35, e=0.30$), Médio ($C=4, d=0.15, e=0.12$), e Difícil ($C=12, d=0.03, e=0.03$).
+
+\chapter{Avaliação Experimental e Resultados}
+
+\section{Resultados da Simulação}
+
+Foram realizadas 1000 partidas simuladas por condição em um tabuleiro de 16 cartas (8 pares). A Tabela \ref{tab:resultados} expõe os resultados.
+
+\begin{table}[htb]
+\centering
+\caption{Resultados da simulação (1000 partidas por cenário)}
+\label{tab:resultados}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Confronto} & \textbf{Vitórias} & \textbf{Empates} & \textbf{Turnos (médio)} \\
+\midrule
+Aleatório vs Aleatório & 376 x 396 & 228 & 64.1 \\
+Fácil vs Aleatório & 435 x 343 & 222 & 62.3 \\
+Médio vs Aleatório & 874 x 40 & 86 & 29.2 \\
+Difícil vs Aleatório & 973 x 4 & 23 & 18.9 \\
+Difícil vs Fácil & 953 x 11 & 36 & 20.6 \\
+Difícil vs Médio & 831 x 77 & 92 & 20.6 \\
+Médio vs Fácil & 838 x 58 & 104 & 30.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Os resultados confirmam as hipóteses: a heurística com decaimento supera o comportamento aleatório (H1), e a escala de dificuldade se manifesta claramente no confronto direto, com o nível Difícil dominando (H2). Além disso, a duração da partida decresce de 64.1 (Aleatório) para 18.9 (Difícil), demonstrando um jogo muito mais acurado. O nível Médio finaliza o jogo em 29.2 turnos, refletindo um desafio realista.
+
+\chapter{Conclusão}
+
+O presente estudo desenvolveu e testou um agente heurístico embasado na psicologia cognitiva. As métricas indicam clara progressão da dificuldade conforme a capacidade aumenta e o decaimento decresce. O agente heurístico demonstrou-se auditável e ideal para uso em plataforma educacional. Trabalhos futuros contemplam o Ajuste Dinâmico de Dificuldade em tempo real (DDA) e avaliações empíricas com usuários.
+
+\postextual
+\bibliography{referencias}
+
+\end{document}

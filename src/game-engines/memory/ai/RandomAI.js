@@ -1,4 +1,4 @@
-import { AIStrategyBase } from './AIStrategyBase';
+import { AIStrategyBase } from './AIStrategyBase.js';
 
 export class RandomAI extends AIStrategyBase {
   async chooseNextCard(gameState) {

@@ -141,20 +141,54 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * updateProfile — altera nome (tabela profiles), email e/ou senha (auth)
+   * @param {{ name?: string, email?: string, password?: string }} updates
+   */
+  const updateProfile = async ({ name, email, password } = {}) => {
+    const authUpdates = {};
+    if (email)    authUpdates.email    = email;
+    if (password) authUpdates.password = password;
+
+    // 1. Atualizar autenticação (email/senha)
+    if (Object.keys(authUpdates).length > 0) {
+      const { error: authError } = await supabase.auth.updateUser(authUpdates);
+      if (authError) throw authError;
+    }
+
+    // 2. Atualizar nome na tabela de perfis
+    if (name && user?.id) {
+      const { error: profileError } = await supabase
+        .from('memory_agents_profiles')
+        .update({ name })
+        .eq('id', user.id);
+      if (profileError) throw profileError;
+    }
+
+    // 3. Atualizar estado local
+    setUser(prev => ({
+      ...prev,
+      ...(name  ? { name }  : {}),
+      ...(email ? { email } : {}),
+    }));
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
-        <div className="bg-indigo-600 p-2 rounded-xl text-white font-black text-2xl animate-pulse">M</div>
-        <div className="text-slate-400 font-bold animate-pulse">Carregando portal...</div>
+      <div className="min-h-screen bg-blue-50 flex flex-col items-center justify-center gap-4">
+        <div className="bg-blue-600 p-3 rounded-2xl text-white font-black text-3xl animate-pulse shadow-lg">🧠</div>
+        <div className="text-blue-400 font-black text-lg animate-pulse">Carregando...</div>
       </div>
     );
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
+// O hook é exportado junto ao provider por conveniência do módulo.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

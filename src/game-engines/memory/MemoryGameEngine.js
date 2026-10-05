@@ -1,4 +1,4 @@
-import { shuffleArray } from '../../utils/shuffle';
+import { shuffleArray } from '../../utils/shuffle.js';
 
 export class MemoryGameEngine {
   constructor(cardPairs) {
@@ -7,6 +7,7 @@ export class MemoryGameEngine {
     this.flippedIndices = [];
     this.matchedPairs = new Set();
     this.turn = 'player'; // 'player' ou 'ai'
+    this.flips = { player: 0, ai: 0 };
   }
 
   _generateCards(cardPairs) {
@@ -35,6 +36,7 @@ export class MemoryGameEngine {
     if (this.matchedPairs.has(this.cards[index].pairId)) return false;
 
     this.flippedIndices.push(index);
+    this.flips[this.turn] += 1;
     return true;
   }
 
@@ -49,7 +51,7 @@ export class MemoryGameEngine {
     
     if (isMatch) {
       this.matchedPairs.add(card1.pairId);
-      this.score[this.turn] += 10;
+      this.score[this.turn] += 1;
     }
     
     return { isMatch, idx1, idx2 };
@@ -75,6 +77,7 @@ export class MemoryGameEngine {
         isMatched: this.matchedPairs.has(c.pairId)
       })),
       score: { ...this.score },
+      flips: { ...this.flips },
       turn: this.turn,
       gameOver: this.isGameOver()
     };

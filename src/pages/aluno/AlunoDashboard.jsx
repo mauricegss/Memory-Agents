@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Trophy, Play, Users } from 'lucide-react';
+import { BookOpen, Trophy, Play, Users, ArrowRight, Loader2, KeyRound } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 /* eslint-disable react-hooks/exhaustive-deps */
 
@@ -14,6 +15,7 @@ const AlunoDashboard = () => {
   const [matchCount, setMatchCount] = useState(0);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showSuccess, showError, showWarning } = useToast();
 
   useEffect(() => {
     if (user) {
@@ -65,8 +67,12 @@ const AlunoDashboard = () => {
     }
   };
 
-  const handleJoin = async () => {
-    if (!classCode.trim() || !user) return;
+  const handleJoin = async (e) => {
+    if (e) e.preventDefault();
+    if (!classCode.trim() || !user) {
+      showWarning('Digite o código fornecido pelo seu professor.');
+      return;
+    }
     try {
       setJoinLoading(true);
       
@@ -77,7 +83,7 @@ const AlunoDashboard = () => {
         .single();
         
       if (turmaError || !turmaData) {
-        alert('Turma não encontrada. Verifique o código.');
+        showError('Turma não encontrada. Verifique o código e tente novamente.');
         return;
       }
       
@@ -89,71 +95,99 @@ const AlunoDashboard = () => {
          throw joinError;
       }
       
+      showSuccess(`Você entrou na turma ${turmaData.name}! 🎉`);
       setClassCode('');
       fetchMinhasTurmas();
       navigate(`/turmas/${turmaData.id}`);
     } catch (error) {
-      alert('Erro ao entrar na turma: ' + error.message);
+      showError('Erro ao entrar na turma: ' + error.message);
     } finally {
       setJoinLoading(false);
     }
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto py-6">
-      <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 p-8 rounded-3xl text-white flex flex-col md:flex-row justify-between items-center gap-6 shadow-xl">
-        <div>
-          <h2 className="text-3xl font-black mb-1">Minhas Turmas</h2>
-          <p className="text-indigo-200 text-sm">Entre com o código do seu professor para acessar atividades exclusivas.</p>
+    <div className="flex-1 overflow-auto scrollbar-thin min-h-0 space-y-6">
+      {/* Banner Principal com Input de Código */}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 p-6 sm:p-8 rounded-3xl text-white flex flex-col md:flex-row justify-between items-center gap-6 shadow-xl shadow-blue-200/50">
+        <div className="text-center md:text-left">
+          <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-2 backdrop-blur-sm">
+            🎓 Painel do Estudante
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black mb-1">Minhas Turmas</h2>
+          <p className="text-blue-100 text-sm max-w-md">Entre com o código passado pelo seu professor para acessar atividades e jogos exclusivos.</p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto bg-white/10 p-2 rounded-2xl backdrop-blur-sm">
-          <input 
-            type="text" 
-            placeholder="Ex: UTFPR-2026" 
-            className="bg-white/80 border-none rounded-xl px-4 py-3 text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-300 flex-1 transition-all outline-none"
-            value={classCode}
-            onChange={(e) => setClassCode(e.target.value)}
-          />
+
+        <form onSubmit={handleJoin} className="flex gap-2 w-full md:w-auto bg-white/15 p-2 rounded-2xl backdrop-blur-md border border-white/20 shadow-inner">
+          <div className="relative flex items-center flex-1 md:w-64">
+            <KeyRound className="absolute left-3 text-blue-200 pointer-events-none" size={16} />
+            <input 
+              type="text" 
+              placeholder="Código: Ex: MAT6-2026" 
+              className="w-full bg-white/95 border-none rounded-xl pl-9 pr-3 py-2.5 text-slate-800 text-sm font-bold placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-300 transition-all outline-none"
+              value={classCode}
+              onChange={(e) => setClassCode(e.target.value)}
+            />
+          </div>
           <button 
-            className="bg-white text-indigo-700 px-6 py-3 rounded-xl font-bold hover:bg-slate-100 transition-all shadow-sm disabled:opacity-50"
-            onClick={handleJoin}
+            type="submit"
+            className="bg-white text-blue-700 px-5 py-2.5 rounded-xl font-black text-sm hover:bg-blue-50 transition-all shadow-sm disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer"
             disabled={joinLoading}
           >
-            {joinLoading ? 'Entrando...' : 'Entrar'}
+            {joinLoading ? <Loader2 size={16} className="animate-spin" /> : <>Entrar <ArrowRight size={15} /></>}
           </button>
-        </div>
+        </form>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Turmas Participadas */}
         <section className="lg:col-span-2 space-y-4">
-          <h3 className="font-bold text-xl flex items-center gap-2 text-slate-100">
-            <BookOpen size={20} className="text-indigo-500" /> Minhas Turmas
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-black text-lg flex items-center gap-2 text-slate-800">
+              <BookOpen size={20} className="text-blue-600" /> Turmas Matriculadas
+            </h3>
+            <span className="text-xs font-bold text-slate-400 bg-white px-2.5 py-1 rounded-full border border-blue-100">
+              {turmas.length} {turmas.length === 1 ? 'turma' : 'turmas'}
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {loading ? (
-               <div className="sm:col-span-2 text-slate-400 font-medium animate-pulse text-center py-8 bg-slate-900 border border-slate-800 rounded-3xl">
-                 Carregando turmas...
+               <div className="sm:col-span-2 text-blue-600 font-bold animate-pulse text-center py-12 bg-white border border-blue-100 rounded-3xl shadow-xs">
+                 Carregando suas turmas...
                </div>
             ) : turmas.length === 0 ? (
-               <div className="sm:col-span-2 text-slate-500 font-medium text-center py-8 px-4 bg-slate-900 border border-dashed border-slate-800 rounded-3xl">
-                 Você ainda não participa de nenhuma turma. Insira um código acima!
+               <div className="sm:col-span-2 text-center py-10 px-6 bg-white border-2 border-dashed border-blue-200 rounded-3xl shadow-xs">
+                 <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                   🏫
+                 </div>
+                 <h4 className="font-black text-slate-700 mb-1 text-base">Você ainda não está em nenhuma turma</h4>
+                 <p className="text-slate-400 text-xs max-w-sm mx-auto">Peça o código da turma ao seu professor e digite no campo acima para começar a jogar as atividades da classe.</p>
                </div>
             ) : (
               turmas.map(turma => (
                 <Link key={turma.id} to={`/turmas/${turma.id}`} className="block group">
-                  <div className="bg-slate-900 border text-center md:text-left border-slate-800 p-6 rounded-3xl hover:border-indigo-500 hover:shadow-lg transition-all relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-900/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-900/40 transition-colors"></div>
-                    <div className="relative z-10">
-                      <div className="bg-indigo-900 text-indigo-300 w-max px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider mb-3">Turma</div>
-                      <h4 className="text-xl font-black text-slate-100">{turma.name}</h4>
-                      <div className="mt-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex items-center justify-center md:justify-start gap-2 text-sm text-slate-400">
-                          <Users size={16} /> Ver Atividades
-                        </div>
-                        <div className="bg-slate-800 p-2 rounded-xl text-slate-500 group-hover:bg-indigo-600 group-hover:text-white transition-colors flex justify-center">
-                          <Play size={20} fill="currentColor" />
-                        </div>
+                  <div className="bg-white border-2 border-blue-100 p-5 rounded-3xl hover:border-blue-400 hover:shadow-lg transition-all relative overflow-hidden group-hover:-translate-y-1">
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="bg-blue-50 text-blue-700 border border-blue-200/60 px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider">
+                        {turma.code || 'TURMA'}
+                      </span>
+                      <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-xs">
+                        <Play size={14} fill="currentColor" />
                       </div>
+                    </div>
+
+                    <h4 className="text-lg font-black text-slate-800 group-hover:text-blue-600 transition-colors truncate">
+                      {turma.name}
+                    </h4>
+
+                    <div className="mt-4 flex items-center justify-between text-xs font-bold text-slate-400 border-t border-slate-100 pt-3">
+                      <span className="flex items-center gap-1 text-slate-500">
+                        <Users size={14} className="text-blue-500" /> Acessar Sala
+                      </span>
+                      <span className="text-blue-600 font-extrabold flex items-center gap-0.5">
+                        Ver Jogos <ArrowRight size={12} />
+                      </span>
                     </div>
                   </div>
                 </Link>
@@ -162,21 +196,26 @@ const AlunoDashboard = () => {
           </div>
         </section>
 
-        <section className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col justify-between">
+        {/* Card de Progresso */}
+        <section className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm flex flex-col justify-between">
           <div>
-            <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-100">
-              <Trophy size={20} className="text-amber-500"/> Meu Progresso
-            </h3>
-            <p className="text-slate-400 text-sm mb-6">Acompanhe seu engajamento nas atividades passadas pelo professor.</p>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center py-6 bg-slate-950 rounded-2xl border border-slate-800/50">
-              <span className="text-4xl font-black text-indigo-500">{turmas.length}</span>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-tighter mt-2">Turmas Ativas</p>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                <Trophy size={18} />
+              </div>
+              <h3 className="font-black text-slate-800 text-lg">Meu Progresso</h3>
             </div>
-            <div className="text-center py-6 bg-slate-950 rounded-2xl border border-slate-800/50">
-              <span className="text-4xl font-black text-emerald-500">{matchCount}</span>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-tighter mt-2">Partidas Jogadas</p>
+            <p className="text-slate-500 text-xs mb-6">Acompanhe seu desempenho e engajamento nas atividades escolares.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="text-center py-5 bg-blue-50/80 rounded-2xl border border-blue-100">
+              <span className="text-3xl font-black text-blue-600">{turmas.length}</span>
+              <p className="text-[11px] font-black text-slate-500 uppercase tracking-tight mt-1">Turmas Ativas</p>
+            </div>
+            <div className="text-center py-5 bg-emerald-50/80 rounded-2xl border border-emerald-100">
+              <span className="text-3xl font-black text-emerald-600">{matchCount}</span>
+              <p className="text-[11px] font-black text-slate-500 uppercase tracking-tight mt-1">Partidas Jogadas</p>
             </div>
           </div>
         </section>

@@ -24,7 +24,8 @@ export function useMemoryGame(cardPairs, aiConfig) {
     } else {
       aiRef.current = new HeuristicAI({
         memoryDecayRate: aiConfig?.memory_decay_rate ?? 0.15,
-        mistakeRate: aiConfig?.mistake_rate ?? 0.20
+        mistakeRate: aiConfig?.mistake_rate ?? 0.20,
+        memoryCapacity: aiConfig?.memory_capacity ?? 4,
       });
     }
     return () => clearTimeout(timeoutRef.current);

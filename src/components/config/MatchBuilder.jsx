@@ -3,11 +3,13 @@ import { Plus, Trash2, Image as ImageIcon, UploadCloud, Type } from 'lucide-reac
 import { compressImage } from '../../utils/imageProcessor';
 import { uploadFileToStorage } from '../../services/storageService';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
   const [draggedItem, setDraggedItem] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const { user } = useAuth();
+  const { showWarning, showError } = useToast();
 
   // Helper para gerar IDs únicos locais
   const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -18,7 +20,6 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
     if (files.length === 0 || !user) return;
     setIsUploading(true);
 
-    // Processar todas as imagens em blobs e fazer upload
     const processedImages = [];
     for (const file of files) {
       try {
@@ -99,6 +100,7 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
       setPairs(updated);
     } catch (err) {
       console.error("Erro ao fazer upload de imagem única:", err);
+      showError('Erro ao enviar imagem. Tente novamente.');
     } finally {
       setIsUploading(false);
     }
@@ -133,7 +135,6 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
   // --- DRAG AND DROP LÓGICA ---
   const handleDragStart = (e, pairId, slotIndex) => {
     setDraggedItem({ pairId, slotIndex });
-    // Define os dados de transferência para compatibilidade
     e.dataTransfer.setData('text/plain', `${pairId}|${slotIndex}`);
     e.dataTransfer.effectAllowed = "move";
   };
@@ -149,7 +150,6 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
 
     const { pairId: sourcePairId, slotIndex: sourceSlotIndex } = draggedItem;
 
-    // Se dropou no mesmo lugar, ignora
     if (sourcePairId === targetPairId && sourceSlotIndex === targetSlotIndex) {
       setDraggedItem(null);
       return;
@@ -158,14 +158,12 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
     const defaultType1 = matchType.startsWith('image') ? 'image' : 'text';
     const defaultType2 = matchType.endsWith('text') || matchType === 'text_text' ? 'text' : 'image';
     
-    // Validar se o tipo pode ir para o slot
     const isValidType = (itemType, tSlot) => {
       if (itemType === 'empty') return true;
       const expectedType = tSlot === 1 ? defaultType1 : defaultType2;
       return itemType === expectedType;
     };
 
-    // Criar cópia profunda do array de pares
     const updated = pairs.map(p => ({
       ...p,
       item1: { ...p.item1 },
@@ -179,14 +177,12 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
       const itemSource = sourceSlotIndex === 1 ? { ...pSource.item1 } : { ...pSource.item2 };
       const itemTarget = targetSlotIndex === 1 ? { ...pTarget.item1 } : { ...pTarget.item2 };
 
-      // Swap validation
       if (!isValidType(itemSource.type, targetSlotIndex) || !isValidType(itemTarget.type, sourceSlotIndex)) {
-        alert('Troca inválida: este slot não permite esse formato.');
+        showWarning('Troca inválida: este slot não permite esse formato.');
         setDraggedItem(null);
         return;
       }
 
-      // Swap
       if (sourceSlotIndex === 1) pSource.item1 = itemTarget; 
       else pSource.item2 = itemTarget;
 
@@ -198,7 +194,7 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
     setDraggedItem(null);
   };
 
-  // Renderizadores de Slots (Inputs ou Dropzones)
+  // Renderizadores de Slots
   const renderSlot = (pair, slotIndex) => {
     const item = slotIndex === 1 ? pair.item1 : pair.item2;
     const isImage = item.type === 'image' || (item.type === 'empty' && matchType.includes('image'));
@@ -214,26 +210,32 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
     };
 
     if (matchType === 'image_image_same' && slotIndex === 2) {
-       return <div className="flex-1 flex items-center justify-center p-4 bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl relative overflow-hidden group aspect-square">
-         <img src={pair.item1.content} alt="Cópia" className="absolute inset-0 w-full h-full object-contain p-2 opacity-50 grayscale" />
-         <div className="z-10 bg-slate-900/80 px-3 py-1 rounded-lg text-xs font-bold text-slate-300 backdrop-blur-sm shadow-black">Cópia Automática</div>
-       </div>;
+       return (
+         <div className="flex-1 flex items-center justify-center p-3 bg-blue-50/60 border-2 border-dashed border-blue-200 rounded-2xl relative overflow-hidden group aspect-square">
+           {pair.item1.content ? (
+             <img src={pair.item1.content} alt="Cópia" className="absolute inset-0 w-full h-full object-contain p-2 opacity-60" />
+           ) : null}
+           <div className="z-10 bg-white/90 border border-blue-200 px-2.5 py-1 rounded-lg text-xs font-black text-blue-700 shadow-xs backdrop-blur-xs">
+             Cópia Automática
+           </div>
+         </div>
+       );
     }
 
     if (isText) {
       return (
         <div 
-          className={`flex-1 flex flex-col gap-2 relative transition-all ${isDraggingThis ? 'opacity-50 scale-95 border-indigo-500' : ''} aspect-square`}
+          className={`flex-1 flex flex-col gap-2 relative transition-all ${isDraggingThis ? 'opacity-50 scale-95 border-blue-500' : ''} aspect-square`}
           {...dragHandlers}
         >
            <textarea 
-             placeholder="Digite o texto da carta..."
+             placeholder="Texto da carta..."
              value={item.content}
              onChange={(e) => handleTextChange(pair.id, slotIndex, e.target.value)}
-             className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-200 focus:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600 resize-none h-full min-h-[120px] cursor-text"
+             className="w-full bg-white border-2 border-blue-200 rounded-2xl p-3 text-slate-700 font-bold focus:bg-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition-all placeholder:text-slate-400 resize-none h-full min-h-[100px] text-xs sm:text-sm cursor-text shadow-xs"
            />
-           <div className="absolute top-2 right-2 text-slate-600 cursor-grab hover:text-indigo-400 p-1" title="Arraste para trocar">
-             <Type size={16} />
+           <div className="absolute top-2 right-2 text-slate-400 cursor-grab hover:text-blue-600 p-1" title="Arraste para trocar">
+             <Type size={14} />
            </div>
         </div>
       );
@@ -245,7 +247,7 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
           className={`flex-1 aspect-square transition-all ${isDraggingThis ? 'opacity-50 scale-95' : ''}`}
           {...dragHandlers}
         >
-          <label className={`block w-full h-full bg-slate-900 border-2 border-dashed ${item.content ? 'border-slate-700' : 'border-indigo-500 hover:bg-slate-800'} rounded-xl cursor-pointer relative overflow-hidden group transition-all`}>
+          <label className={`block w-full h-full bg-white border-2 border-dashed ${item.content ? 'border-blue-300' : 'border-blue-200 hover:border-blue-400 hover:bg-blue-50/50'} rounded-2xl cursor-pointer relative overflow-hidden group transition-all shadow-xs`}>
             <input 
               type="file" 
               accept="image/*" 
@@ -255,14 +257,14 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
             {item.content ? (
               <>
                 <img src={item.content} alt="Upload" className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300" />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                   <p className="text-white font-bold text-sm bg-black/40 px-3 py-1 rounded-full cursor-pointer">Re-enviar</p>
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                   <p className="text-white font-black text-xs bg-black/60 px-2.5 py-1 rounded-xl">Alterar Imagem</p>
                 </div>
               </>
             ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
-                <ImageIcon size={28} className="mb-2 text-indigo-400 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-bold text-slate-400">Arraste algo p/ cá</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+                <ImageIcon size={24} className="mb-1 text-blue-400 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-bold text-slate-500 leading-tight">Clique ou solte</span>
               </div>
             )}
           </label>
@@ -274,17 +276,18 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
   };
 
   return (
-    <div className="space-y-6">
-      
+    <div className="space-y-5">
       {/* Zona de Upload em Massa para modos de imagem */}
       {matchType.includes('image') && (
-        <div className="bg-indigo-900/10 border border-indigo-900/30 p-6 rounded-2xl">
-          <div className="flex items-center justify-between">
+        <div className="bg-blue-50/80 border border-blue-200 p-4 sm:p-5 rounded-2xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
-              <h3 className="font-bold text-slate-100 flex items-center gap-2"><UploadCloud size={20} className="text-indigo-400" /> Upload Rápido de Imagens</h3>
-              <p className="text-slate-400 text-sm mt-1">Gere quadrados automaticamente. Depois **clique e arraste** para trocar imagens entre os blocos!</p>
+              <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
+                <UploadCloud size={18} className="text-blue-600" /> Upload Rápido de Imagens
+              </h3>
+              <p className="text-slate-500 text-xs mt-0.5">Envie múltiplas imagens de uma vez para preencher os pares automaticamente.</p>
             </div>
-            <label className={`bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-md transition-all whitespace-nowrap flex items-center justify-center gap-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-500 cursor-pointer'}`}>
+            <label className={`btn-primary py-2 px-4 text-xs font-black shrink-0 ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
               {isUploading ? 'Enviando...' : 'Selecionar Imagens'}
               <input type="file" multiple accept="image/*" className="hidden" disabled={isUploading} onChange={handleBulkImageUpload} />
             </label>
@@ -292,49 +295,49 @@ export const MatchBuilder = ({ matchType, pairs, setPairs }) => {
         </div>
       )}
 
-      {/* Título e Contador dinâmico */}
+      {/* Título e Ação Adicionar Par */}
       <div className="flex items-center justify-between">
-         <h3 className="text-xl font-bold text-slate-100 flex items-center gap-3">
-           Pares do Jogo
-           <span className="bg-slate-800 text-indigo-400 px-3 py-1 rounded-full text-sm border border-slate-700">
+         <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+           Cartas do Jogo
+           <span className="bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full text-xs font-black border border-blue-200">
              {pairs.length} {pairs.length === 1 ? 'Par' : 'Pares'} ({pairs.length * 2} Cartas)
            </span>
          </h3>
          <button 
            type="button"
            onClick={addEmptyPair}
-           className="text-slate-400 hover:text-indigo-400 font-bold text-sm flex items-center gap-1 transition-colors"
+           className="text-blue-600 hover:text-blue-700 font-black text-xs flex items-center gap-1 cursor-pointer bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors border border-blue-200"
          >
-           <Plus size={16} /> Adicionar Par Vazio
+           <Plus size={14} /> Adicionar Par Vazio
          </button>
       </div>
 
       {/* Grid de Pares */}
       {pairs.length === 0 ? (
-        <div className="text-center py-12 bg-slate-900/50 border border-slate-800 border-dashed rounded-2xl">
-           <p className="text-slate-500 font-medium">Nenhum par criado ainda. Faça upload ou clique em "Adicionar Par Vazio".</p>
+        <div className="text-center py-10 bg-blue-50/50 border-2 border-dashed border-blue-200 rounded-3xl">
+           <p className="text-slate-400 font-bold text-xs">Nenhum par criado ainda. Faça upload de imagens ou clique em "Adicionar Par Vazio".</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           {pairs.map((pair) => (
-            <div key={pair.id} className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl flex gap-3 group/pair relative animate-fadeIn">
+            <div key={pair.id} className="bg-white border-2 border-blue-100 p-3.5 rounded-2xl flex gap-2.5 group/pair relative shadow-xs hover:border-blue-300 transition-all">
               {/* Botão de excluir */}
               <button 
                 type="button" 
                 onClick={() => removePair(pair.id)}
-                className="absolute -top-3 -right-3 bg-red-500/90 hover:bg-red-600 text-white p-2 rounded-full opacity-0 group-hover/pair:opacity-100 transition-all shadow-md z-20"
+                className="absolute -top-2.5 -right-2.5 bg-rose-500 hover:bg-rose-600 text-white p-1.5 rounded-full shadow-sm z-20 transition-transform cursor-pointer"
                 title="Remover Par"
               >
-                <Trash2 size={14} />
+                <Trash2 size={13} />
               </button>
 
               {/* Slot 1 */}
               {renderSlot(pair, 1)}
               
               {/* Elo de ligação */}
-              <div className="flex flex-col items-center justify-center pointer-events-none">
-                <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 z-10 shadow-sm">
-                  <span className="text-slate-500 text-sm font-black flex items-center justify-center">=</span>
+              <div className="flex flex-col items-center justify-center pointer-events-none px-0.5">
+                <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center border border-blue-200 z-10 shadow-xs">
+                  <span className="text-blue-600 text-xs font-black">=</span>
                 </div>
               </div>
 

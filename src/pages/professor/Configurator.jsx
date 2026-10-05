@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import ConfigForm from '../../components/ConfigForm';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 const Configurator = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [loading, setLoading] = useState(false);
 
   const handleGenerateGame = async (configData) => {
@@ -49,38 +51,43 @@ const Configurator = () => {
       ]);
       if (aiError) throw aiError;
       
-      alert('Jogo criado com sucesso!');
+      showSuccess(`Jogo "${configData.title}" criado com sucesso! 🎉`);
       navigate('/professor');
     } catch (error) {
       console.error(error);
-      alert('Erro ao criar jogo: ' + error.message);
+      showError('Erro ao criar jogo: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <button 
-        onClick={() => navigate('/professor')}
-        className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 mb-6 transition-colors"
-      >
-        <ArrowLeft size={20} /> Voltar ao Painel
-      </button>
+    <div className="flex-1 overflow-auto scrollbar-thin min-h-0">
+      <div className="max-w-4xl mx-auto py-2 space-y-4">
+        <button 
+          onClick={() => navigate('/professor')}
+          className="inline-flex items-center gap-1.5 text-slate-500 hover:text-blue-600 font-bold text-sm transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={18} /> Voltar ao Painel
+        </button>
 
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-slate-100">Configurar Desafio de IA</h2>
-        <p className="text-slate-400">Personalize o tabuleiro e o comportamento do adversário inteligente.</p>
-      </div>
-
-      <div className="bg-slate-900 rounded-3xl shadow-lg border border-slate-800 p-2 relative">
-        {loading && (
-          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 rounded-3xl flex flex-col items-center justify-center">
-             <Loader2 className="animate-spin text-indigo-500 mb-4" size={48} />
-             <p className="text-white font-bold">Salvando seu jogo...</p>
+        <div className="bg-white border border-blue-100 rounded-3xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
+          <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider mb-2">
+            <Sparkles size={14} /> Criador de Desafios IA
           </div>
-        )}
-        <ConfigForm onSubmit={handleGenerateGame} />
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">Criar Novo Jogo da Memória</h2>
+          <p className="text-slate-500 text-xs sm:text-sm mt-1">Personalize as cartas, regras de correspondência e o comportamento do robô adversário.</p>
+        </div>
+
+        <div className="bg-white rounded-3xl shadow-sm border border-blue-100 p-2 sm:p-4 relative">
+          {loading && (
+            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 rounded-3xl flex flex-col items-center justify-center gap-3">
+               <Loader2 className="animate-spin text-blue-600" size={48} />
+               <p className="text-slate-800 font-black text-base">Salvando seu jogo e gerando cartas...</p>
+            </div>
+          )}
+          <ConfigForm onSubmit={handleGenerateGame} />
+        </div>
       </div>
     </div>
   );

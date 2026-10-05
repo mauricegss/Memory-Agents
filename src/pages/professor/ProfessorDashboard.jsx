@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, Library, BarChart3, Settings, Copy, Check, X, Loader2 } from 'lucide-react';
+import { Plus, Users, Library, BarChart3, Settings, Copy, Check, X, Loader2, Sparkles, GraduationCap, Gamepad2, ArrowRight, Trash2, Edit3, Dices } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import GameCard from '../../components/GameCard';
 
 /* eslint-disable react-hooks/exhaustive-deps */
@@ -10,6 +11,7 @@ import GameCard from '../../components/GameCard';
 const ProfessorDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showSuccess, showError, showInfo } = useToast();
   
   const [activeTab, setActiveTab] = useState('turmas'); // 'turmas' | 'jogos'
   const [turmas, setTurmas] = useState([]);
@@ -20,6 +22,7 @@ const ProfessorDashboard = () => {
   const [copiedId, setCopiedId] = useState(null);
   const [newTurma, setNewTurma] = useState({ name: '', code: '' });
   const [editingTurma, setEditingTurma] = useState(null);
+  const [turmaToDelete, setTurmaToDelete] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -42,7 +45,6 @@ const ProfessorDashboard = () => {
 
       if (error) throw error;
       
-      // Busca manual das contagens para evitar problemas de relacionamento via PostgREST
       const turmasFormatadas = await Promise.all((data || []).map(async (t) => {
           const { count: alunosCount } = await supabase
             .from('memory_agents_turma_alunos')
@@ -89,15 +91,25 @@ const ProfessorDashboard = () => {
     }
   };
 
+  const generateAutoCode = () => {
+    const prefix = (newTurma.name || 'TURMA').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'TUR');
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    setNewTurma(prev => ({ ...prev, code: `${prefix}-${randomNum}` }));
+  };
+
   const handleCreateTurma = async (e) => {
     e.preventDefault();
+    if (!newTurma.name.trim() || !newTurma.code.trim()) {
+      showError('Preencha o nome e o código identificador da turma.');
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('memory_agents_turmas')
         .insert([
           { 
             name: newTurma.name, 
-            code: newTurma.code, 
+            code: newTurma.code.toUpperCase().trim(), 
             professor_id: user.id 
           }
         ])
@@ -108,8 +120,9 @@ const ProfessorDashboard = () => {
       setTurmas([data[0], ...turmas]);
       setShowModal(false);
       setNewTurma({ name: '', code: '' });
+      showSuccess(`Turma "${data[0].name}" criada com sucesso! 🏫`);
     } catch (error) {
-      alert('Erro ao criar turma: ' + error.message);
+      showError('Erro ao criar turma: ' + error.message);
     }
   };
 
@@ -118,7 +131,7 @@ const ProfessorDashboard = () => {
     try {
       const { data, error } = await supabase
         .from('memory_agents_turmas')
-        .update({ name: editingTurma.name, code: editingTurma.code })
+        .update({ name: editingTurma.name, code: editingTurma.code.toUpperCase().trim() })
         .eq('id', editingTurma.id)
         .select();
 
@@ -126,298 +139,405 @@ const ProfessorDashboard = () => {
       
       setTurmas(turmas.map(t => t.id === editingTurma.id ? { ...t, ...data[0] } : t));
       setEditingTurma(null);
+      showSuccess('Turma atualizada com sucesso!');
     } catch (error) {
-      alert('Erro ao atualizar turma: ' + error.message);
+      showError('Erro ao atualizar turma: ' + error.message);
     }
   };
 
   const handleDeleteTurma = async () => {
-    if (!window.confirm('Tem certeza que deseja excluir esta turma? Isso é irreversível. Todas as atividades associadas perderão o vínculo.')) return;
+    if (!turmaToDelete) return;
     try {
-      // 1. Apaga relações pre-existentes (falha de forma silenciosa se a tabela ainda não existir no bd)
       try {
-         await supabase.from('memory_agents_turma_alunos').delete().eq('turma_id', editingTurma.id);
-         await supabase.from('memory_agents_turma_games').delete().eq('turma_id', editingTurma.id);
+         await supabase.from('memory_agents_turma_alunos').delete().eq('turma_id', turmaToDelete.id);
+         await supabase.from('memory_agents_turma_games').delete().eq('turma_id', turmaToDelete.id);
       } catch {
-         console.warn('Tabelas de relacionamento não encontradas. Ignorando limpezas.');
+         // Silently ignore relation cleanups if not present
       }
 
-      // 2. Apaga a Turma
-      const { data, error } = await supabase.from('memory_agents_turmas').delete().eq('id', editingTurma.id).select();
+      const { error } = await supabase.from('memory_agents_turmas').delete().eq('id', turmaToDelete.id);
       if (error) throw error;
       
-      if (!data || data.length === 0) {
-         throw new Error('A operação foi executada, mas o banco de dados recusou a exclusão devido a permissões de segurança (RLS).');
-      }
-
-      setTurmas(turmas.filter(t => t.id !== editingTurma.id));
+      setTurmas(turmas.filter(t => t.id !== turmaToDelete.id));
+      setTurmaToDelete(null);
       setEditingTurma(null);
+      showSuccess('Turma excluída com sucesso.');
     } catch (error) {
-      alert('Erro ao excluir turma: ' + error.message);
+      showError('Erro ao excluir turma: ' + error.message);
     }
   };
 
-  const handleCopyCode = (code, id) => {
+  const copyToClipboard = (code, id) => {
     navigator.clipboard.writeText(code);
     setCopiedId(id);
+    showInfo(`Código ${code} copiado!`);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl mx-auto py-6">
-      {/* Sidebar de Ações Rápidas */}
-      <aside className="lg:col-span-1 space-y-4">
-        <button 
-          onClick={() => navigate('/professor/novo-jogo')}
-          className="w-full bg-indigo-600 text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-500 transition-all shadow-md"
-        >
-          <Plus size={20} /> Criar Novo Jogo
-        </button>
-        
-        <nav className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden text-slate-400 font-medium">
-          <button 
-            onClick={() => setActiveTab('turmas')}
-            className={`w-full p-4 flex items-center gap-3 transition-colors ${activeTab === 'turmas' ? 'bg-slate-800 text-indigo-400 border-b border-slate-800 font-bold' : 'hover:bg-slate-800'}`}
-          >
-            <Users size={18} /> Painel de Turmas
-          </button>
-          <button 
-            onClick={() => setActiveTab('jogos')}
-            className={`w-full p-4 flex items-center gap-3 transition-colors ${activeTab === 'jogos' ? 'bg-slate-800 text-indigo-400 font-bold' : 'hover:bg-slate-800'}`}
-          >
-            <Library size={18} /> Meus Jogos
-          </button>
-        </nav>
-      </aside>
+  const totalAlunos = turmas.reduce((acc, t) => acc + (t.turma_alunos?.[0]?.count || 0), 0);
 
-      {/* Conteúdo Principal */}
-      <main className="lg:col-span-3 space-y-6">
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-700 p-8 rounded-3xl text-white shadow-xl flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-black mb-2">Painel do Professor</h2>
-            <p className="text-emerald-100">Gerencie suas turmas, alunos e crie atividades engajadoras.</p>
+  return (
+    <div className="flex-1 overflow-auto scrollbar-thin min-h-0 space-y-6">
+      {/* Banner Superior com Estatísticas */}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-blue-200/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+          <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-2 backdrop-blur-sm">
+            👨‍🏫 Gestão Educacional
           </div>
-          <div className="hidden md:block opacity-20">
-            <Users size={80} />
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-black mb-1">Painel do Professor</h1>
+          <p className="text-blue-100 text-sm max-w-md">Gerencie suas turmas, crie jogos personalizados com IA e analise o rendimento dos seus alunos.</p>
         </div>
 
-        <div className="flex items-center justify-between">
-          <h3 className="text-2xl font-bold text-slate-100">{activeTab === 'turmas' ? 'Minhas Turmas' : 'Meus Jogos Criados'}</h3>
-          {activeTab === 'turmas' && (
-            <button 
+        {/* Quick Stats Bar */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full md:w-auto bg-white/15 p-2 rounded-2xl backdrop-blur-md border border-white/20">
+          <div className="bg-white/20 rounded-xl px-4 py-2 text-center">
+            <span className="text-2xl font-black text-white">{turmas.length}</span>
+            <p className="text-[10px] font-bold text-blue-100 uppercase tracking-tighter">Turmas</p>
+          </div>
+          <div className="bg-white/20 rounded-xl px-4 py-2 text-center">
+            <span className="text-2xl font-black text-white">{myGames.length}</span>
+            <p className="text-[10px] font-bold text-blue-100 uppercase tracking-tighter">Jogos</p>
+          </div>
+          <div className="bg-white/20 rounded-xl px-4 py-2 text-center">
+            <span className="text-2xl font-black text-white">{totalAlunos}</span>
+            <p className="text-[10px] font-bold text-blue-100 uppercase tracking-tighter">Alunos</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Navegação de Abas e Ações */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-blue-100/80 pb-3">
+        <div className="flex bg-white border border-blue-100 rounded-2xl p-1 shadow-xs">
+          <button
+            onClick={() => setActiveTab('turmas')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl font-black text-xs transition-all cursor-pointer ${
+              activeTab === 'turmas'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <Users size={16} /> Minhas Turmas ({turmas.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('jogos')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl font-black text-xs transition-all cursor-pointer ${
+              activeTab === 'jogos'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <Library size={16} /> Meus Jogos ({myGames.length})
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          {activeTab === 'turmas' ? (
+            <button
               onClick={() => setShowModal(true)}
-              className="bg-slate-900 border border-slate-800 text-indigo-400 px-4 py-2 rounded-xl font-bold hover:bg-slate-800 hover:border-indigo-500 transition-all flex items-center gap-2 text-sm shadow-sm"
+              className="btn-primary py-2.5 px-4 text-xs font-black flex items-center gap-1.5 cursor-pointer"
             >
               <Plus size={16} /> Nova Turma
             </button>
+          ) : (
+            <Link
+              to="/professor/novo-jogo"
+              className="btn-primary py-2.5 px-4 text-xs font-black flex items-center gap-1.5"
+            >
+              <Sparkles size={16} /> Criar Novo Jogo
+            </Link>
           )}
-        </div>
 
-        {loading ? (
-          <div className="flex justify-center items-center py-20 min-h-[30vh]">
-            <Loader2 className="animate-spin text-indigo-500" size={32} />
-          </div>
-        ) : activeTab === 'turmas' ? (
-           turmas.length === 0 ? (
-            <div className="bg-slate-900 border border-dashed border-slate-800 rounded-3xl p-12 text-center mt-6">
-               <div className="bg-slate-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-500">
-                  <Users size={32} />
-               </div>
-               <h4 className="text-slate-300 font-bold mb-1">Você ainda não tem turmas</h4>
-               <p className="text-slate-500 text-sm mb-6">Comece agora criando sua primeira turma para gerenciar alunos.</p>
-               <button 
-                 onClick={() => setShowModal(true)}
-                 className="text-indigo-400 font-bold hover:underline"
-                >
-                  + Criar minha primeira turma
-                </button>
+          <Link
+            to="/professor/relatorios"
+            className="btn-secondary py-2.5 px-4 text-xs font-black flex items-center gap-1.5"
+          >
+            <BarChart3 size={16} /> Relatórios Globais
+          </Link>
+        </div>
+      </div>
+
+      {/* Conteúdo Principal */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <Loader2 className="animate-spin text-blue-600" size={40} />
+          <p className="text-blue-500 font-black text-sm">Carregando painel...</p>
+        </div>
+      ) : activeTab === 'turmas' ? (
+        <div>
+          {turmas.length === 0 ? (
+            <div className="bg-white border-2 border-dashed border-blue-200 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-xs">
+              <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                🏫
+              </div>
+              <h3 className="text-lg font-black text-slate-800 mb-1">Nenhuma turma criada ainda</h3>
+              <p className="text-slate-400 text-xs mb-5">Crie sua primeira turma para gerar um código e convidar seus alunos para os desafios com IA.</p>
+              <button
+                onClick={() => setShowModal(true)}
+                className="btn-primary py-2.5 px-5 text-xs font-black"
+              >
+                + Criar Minha Primeira Turma
+              </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              {turmas.map(turma => (
-                <div key={turma.id} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 hover:shadow-lg hover:border-indigo-500/50 transition-all group">
-                  <div className="flex justify-between items-start mb-4">
-                     <span className="bg-indigo-900/50 text-indigo-300 font-black text-xs px-3 py-1 rounded-lg tracking-wider uppercase">
-                      {turma.code.split('-')[0] || 'CLASS'}
-                    </span>
-                    <button 
-                      onClick={() => setEditingTurma(turma)}
-                      className="text-slate-500 hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <Settings size={18}/>
-                    </button>
-                  </div>
-                  <Link to={`/turmas/${turma.id}`} className="block">
-                    <h4 className="text-xl font-black text-slate-100 group-hover:text-indigo-400 transition-colors">
-                      {turma.name}
-                    </h4>
-                  </Link>
-                  <div className="mt-6 flex items-center justify-between text-sm">
-                    <div className="flex gap-4 text-slate-400 font-medium">
-                      <span className="flex items-center gap-1"><Users size={16}/> {turma.turma_alunos?.[0]?.count || 0} Alunos</span>
-                      <span className="flex items-center gap-1"><Library size={16}/> {turma.turma_games?.[0]?.count || 0} Jogos</span>
-                    </div>
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-slate-800 text-xs text-slate-500 flex justify-between items-center">
-                    <span className="flex items-center gap-1">Código: <b className="text-slate-300">{turma.code}</b></span>
-                    <div className="flex gap-4">
-                      <Link 
-                        to={`/professor/relatorios?turma=${turma.id}`}
-                        className="text-indigo-400 font-bold hover:underline" 
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {turmas.map((turma) => (
+                <div
+                  key={turma.id}
+                  className="bg-white border-2 border-blue-100 rounded-3xl p-5 hover:border-blue-300 hover:shadow-lg transition-all flex flex-col justify-between group"
+                >
+                  <div>
+                    <div className="flex justify-between items-start mb-3">
+                      <button
+                        onClick={() => copyToClipboard(turma.code, turma.id)}
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/80 px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Clique para copiar o código"
                       >
-                        Relatórios
-                      </Link>
-                      <button 
-                        onClick={() => handleCopyCode(turma.code, turma.id)}
-                        className="flex items-center gap-1 text-indigo-400 font-bold hover:underline"
+                        {copiedId === turma.id ? <Check size={14} className="text-emerald-600" /> : <Copy size={13} />}
+                        <span>{turma.code}</span>
+                      </button>
+
+                      <button
+                        onClick={() => setEditingTurma(turma)}
+                        className="text-slate-400 hover:text-blue-600 p-1 rounded-lg hover:bg-blue-50 transition-colors"
+                        title="Configurar Turma"
                       >
-                        {copiedId === turma.id ? (
-                          <> <Check size={14} className="text-emerald-400" /> Copiado! </>
-                        ) : (
-                          <> <Copy size={14} /> Copiar </>
-                        )}
+                        <Settings size={16} />
                       </button>
                     </div>
+
+                    <h3 className="text-xl font-black text-slate-800 mb-2 truncate group-hover:text-blue-600 transition-colors">
+                      {turma.name}
+                    </h3>
+
+                    <div className="flex items-center gap-4 text-xs font-bold text-slate-500 mb-4">
+                      <span className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                        <Users size={14} className="text-blue-500" />
+                        {turma.turma_alunos?.[0]?.count || 0} alunos
+                      </span>
+                      <span className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                        <Gamepad2 size={14} className="text-indigo-500" />
+                        {turma.turma_games?.[0]?.count || 0} jogos
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-3 border-t border-slate-100">
+                    <Link
+                      to={`/turmas/${turma.id}`}
+                      className="btn-primary py-2 px-3 text-xs font-black flex-1 text-center justify-center"
+                    >
+                      Acessar Turma <ArrowRight size={14} />
+                    </Link>
+                    <Link
+                      to={`/professor/relatorios?turma=${turma.id}`}
+                      className="btn-secondary py-2 px-3 text-xs font-black flex items-center justify-center text-slate-600"
+                      title="Relatórios"
+                    >
+                      <BarChart3 size={15} />
+                    </Link>
                   </div>
                 </div>
               ))}
             </div>
-          )
-        ) : (
-          /* JOGOS TAB */
-          myGames.length === 0 ? (
-            <div className="bg-slate-900 border border-dashed border-slate-800 rounded-3xl p-12 text-center mt-6">
-               <div className="bg-slate-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-500">
-                  <Library size={32} />
-               </div>
-               <h4 className="text-slate-300 font-bold mb-1">Você não tem jogos criados</h4>
-               <p className="text-slate-500 text-sm mb-6">Crie seu primeiro desafio interativo com auxílio de IA.</p>
-               <button 
-                 onClick={() => navigate('/professor/novo-jogo')}
-                 className="text-indigo-400 font-bold hover:underline"
-                >
-                  + Criar Novo Jogo
-                </button>
+          )}
+        </div>
+      ) : (
+        <div>
+          {myGames.length === 0 ? (
+            <div className="bg-white border-2 border-dashed border-blue-200 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-xs">
+              <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                🎮
+              </div>
+              <h3 className="text-lg font-black text-slate-800 mb-1">Você ainda não criou jogos</h3>
+              <p className="text-slate-400 text-xs mb-5">Crie jogos da memória com temas personalizados, cartas com texto ou imagens e inteligência artificial.</p>
+              <Link
+                to="/professor/novo-jogo"
+                className="btn-primary py-2.5 px-5 text-xs font-black inline-block"
+              >
+                ✨ Criar Meu Primeiro Jogo
+              </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mt-6">
-               {myGames.map((game, i) => (
-                  <GameCard 
-                    key={game.id} 
-                    id={game.id} 
-                    title={game.title} 
-                    author="Você" 
-                    completions={game.plays} 
-                    fallbackColor={i % 2 === 0 ? "bg-indigo-600" : "bg-purple-600"} 
-                  />
-               ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {myGames.map((game, i) => (
+                <GameCard
+                  key={game.id}
+                  id={game.id}
+                  title={game.title}
+                  author={user.name || 'Você'}
+                  authorId={user.id}
+                  completions={game.plays || 0}
+                  fallbackColor={i % 3 === 0 ? 'bg-blue-500' : i % 3 === 1 ? 'bg-indigo-500' : 'bg-sky-500'}
+                />
+              ))}
             </div>
-          )
-        )}
+          )}
+        </div>
+      )}
 
-        {/* Modal de Criação de Turma */}
-        {showModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2rem] p-8 shadow-2xl animate-in zoom-in-95 duration-300">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-black text-slate-100 italic">Nova Turma</h3>
-                <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-white">
-                  <X size={24} />
-                </button>
+      {/* Modal Criar Nova Turma */}
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white border border-blue-100 w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">
+                  <GraduationCap size={20} />
+                </div>
+                <h3 className="text-xl font-black text-slate-800">Nova Turma</h3>
               </div>
-              
-              <form onSubmit={handleCreateTurma} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Nome da Turma</label>
-                  <input 
-                    required
-                    type="text" 
-                    placeholder="Ex: Matemática - 6º Ano A" 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3.5 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
-                    value={newTurma.name}
-                    onChange={(e) => setNewTurma({...newTurma, name: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Código Identificador</label>
-                  <input 
-                    required
-                    type="text" 
-                    placeholder="Ex: MAT6-2026" 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3.5 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
-                    value={newTurma.code}
-                    onChange={(e) => setNewTurma({...newTurma, code: e.target.value})}
-                  />
-                </div>
-                <div className="pt-2">
-                  <button 
-                    type="submit"
-                    className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg hover:shadow-indigo-500/20"
-                  >
-                    Criar Turma
-                  </button>
-                </div>
-              </form>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-xl">
+                <X size={20} />
+              </button>
             </div>
-          </div>
-        )}
 
-        {/* Modal de Edição de Turma */}
-        {editingTurma && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2rem] p-8 shadow-2xl animate-in zoom-in-95 duration-300">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-black text-slate-100 italic">Editar Turma</h3>
-                <button onClick={() => setEditingTurma(null)} className="text-slate-500 hover:text-white">
-                  <X size={24} />
-                </button>
+            <form onSubmit={handleCreateTurma} className="space-y-4">
+              <div>
+                <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1 ml-1">
+                  Nome da Turma
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: 6º Ano A — Robótica e Matemática"
+                  value={newTurma.name}
+                  onChange={(e) => setNewTurma({ ...newTurma, name: e.target.value })}
+                  className="input-field"
+                  required
+                />
               </div>
-              
-              <form onSubmit={handleEditTurma} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Nome da Turma</label>
-                  <input 
-                    required
-                    type="text" 
-                    placeholder="Ex: Matemática - 6º Ano A" 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3.5 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
-                    value={editingTurma.name}
-                    onChange={(e) => setEditingTurma({...editingTurma, name: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Código Identificador</label>
-                  <input 
-                    required
-                    type="text" 
-                    placeholder="Ex: MAT6-2026" 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3.5 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
-                    value={editingTurma.code}
-                    onChange={(e) => setEditingTurma({...editingTurma, code: e.target.value})}
-                  />
-                </div>
-                <div className="pt-2 flex gap-3">
-                  <button 
-                    type="submit"
-                    className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg hover:shadow-indigo-500/20"
-                  >
-                    Salvar
-                  </button>
-                  <button 
+
+              <div>
+                <div className="flex justify-between items-center mb-1 ml-1">
+                  <label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                    Código de Acesso
+                  </label>
+                  <button
                     type="button"
-                    onClick={handleDeleteTurma}
-                    className="bg-red-900/30 text-red-500 border border-red-900 px-6 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-lg"
+                    onClick={generateAutoCode}
+                    className="text-[11px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
                   >
-                    Excluir
+                    <Dices size={13} /> Gerar Automático
                   </button>
                 </div>
-              </form>
+                <input
+                  type="text"
+                  placeholder="Ex: MAT6-A-2026"
+                  value={newTurma.code}
+                  onChange={(e) => setNewTurma({ ...newTurma, code: e.target.value })}
+                  className="input-field font-mono font-bold uppercase"
+                  required
+                />
+                <p className="text-[11px] text-slate-400 font-medium mt-1 ml-1">
+                  Este é o código que você entregará aos alunos para eles entrarem na turma.
+                </p>
+              </div>
+
+              <div className="flex gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="btn-secondary flex-1 py-3 text-sm font-black"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary flex-1 py-3 text-sm font-black"
+                >
+                  Criar Turma
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Turma */}
+      {editingTurma && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white border border-blue-100 w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-xl font-black text-slate-800">Configurações da Turma</h3>
+              <button onClick={() => setEditingTurma(null)} className="text-slate-400 hover:text-slate-600 p-1 rounded-xl">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditTurma} className="space-y-4">
+              <div>
+                <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1 ml-1">
+                  Nome da Turma
+                </label>
+                <input
+                  type="text"
+                  value={editingTurma.name}
+                  onChange={(e) => setEditingTurma({ ...editingTurma, name: e.target.value })}
+                  className="input-field"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1 ml-1">
+                  Código de Acesso
+                </label>
+                <input
+                  type="text"
+                  value={editingTurma.code}
+                  onChange={(e) => setEditingTurma({ ...editingTurma, code: e.target.value })}
+                  className="input-field font-mono font-bold uppercase"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTurmaToDelete(editingTurma)}
+                  className="bg-rose-50 hover:bg-rose-100 text-rose-600 font-black px-4 py-3 rounded-2xl text-xs flex items-center gap-1 transition-colors"
+                >
+                  <Trash2 size={15} /> Excluir
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary flex-1 py-3 text-sm font-black"
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmação para exclusão de turma */}
+      {turmaToDelete && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white border border-rose-100 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 text-center">
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-lg font-black text-slate-800 mb-1">Excluir Turma?</h3>
+            <p className="text-slate-500 text-xs mb-5">
+              Tem certeza que deseja excluir <strong>{turmaToDelete.name}</strong>? Esta ação é irreversível e os alunos perderão o acesso.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setTurmaToDelete(null)}
+                className="btn-secondary flex-1 py-2.5 text-xs font-black"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteTurma}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-black py-2.5 px-4 rounded-2xl text-xs flex-1 transition-all"
+              >
+                Sim, Excluir
+              </button>
             </div>
           </div>
-        )}
-
-      </main>
+        </div>
+      )}
     </div>
   );
 };

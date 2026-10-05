@@ -1,39 +1,94 @@
-import random
-from .agente_base import Agente
+﻿import random
 
-class AgenteComMemoria(Agente):
-    def __init__(self, nome_jogador):
-        super().__init__(nome_jogador, "Agente com Memória")
-        self.memoria = {} # {valor_carta: [lista_de_indices]}
-        self.cartas_vistas = set()
-    
+# Parâmetros padrão por nível de dificuldade (Seção 6.1 — Fundamentação Teórica)
+# Baseados em: Cowan (2001) para capacidade; Ebbinghaus (1885) e interferência para decay
+NIVEIS = {
+    "facil":  {"capacidade": 2,  "decaimento": 0.35, "taxa_erro": 0.30},
+    "medio":  {"capacidade": 4,  "decaimento": 0.15, "taxa_erro": 0.12},
+    "dificil":{"capacidade": 12, "decaimento": 0.03, "taxa_erro": 0.03},
+}
+
+FORCA_INICIAL = 1.0
+FORCA_MINIMA  = 0.05
+
+
+class AgenteComMemoria:
+    """
+    Agente heurístico com memória limitada e esquecimento por interferência.
+
+    Modelos cognitivos implementados:
+    - Capacidade limitada (Cowan, 2001): máximo C posições retidas.
+    - Decaimento por interferência (Keppel & Underwood, 1962; Ebbinghaus, 1885):
+      força_nova = força_anterior * (1 - d) a cada nova observação.
+    - Efeito de recência: itens mais recentes têm força relativa maior.
+    - Erro de recuperação (Peterson & Peterson, 1959): com probabilidade e,
+      o agente ignora o par correto e explora aleatoriamente.
+    """
+
+    def __init__(self, nivel="medio"):
+        params = NIVEIS.get(nivel, NIVEIS["medio"])
+        self.nivel       = nivel
+        self.capacidade  = params["capacidade"]
+        self.decaimento  = params["decaimento"]
+        self.taxa_erro   = params["taxa_erro"]
+        self.memoria     = {}
+        self.turno       = 0
+        self.pares_por_memoria = 0
+        self.pares_por_acaso   = 0
+
     def observar(self, indice, valor_carta):
-        if valor_carta not in self.memoria:
-            self.memoria[valor_carta] = []
-        if indice not in self.memoria[valor_carta]:
-            self.memoria[valor_carta].append(indice)
-        self.cartas_vistas.add(indice)
-    
-    def fazer_jogada(self, indices_disponiveis):
-        desconhecidas = [i for i in indices_disponiveis if i not in self.cartas_vistas]
-        
-        # Estratégia 1: Par certo na memória
-        for valor, indices in self.memoria.items():
-            indices_disponiveis_desse_valor = [i for i in indices if i in indices_disponiveis]
-            if len(indices_disponiveis_desse_valor) >= 2:
-                return indices_disponiveis_desse_valor[0], indices_disponiveis_desse_valor[1]
-        
-        # Estratégia 2: Uma conhecida e uma desconhecida
-        conhecidas_disponiveis = [i for i in indices_disponiveis if i in self.cartas_vistas]
-        if conhecidas_disponiveis and desconhecidas:
-            return random.choice(conhecidas_disponiveis), random.choice(desconhecidas)
+        self.turno += 1
+        a_esquecer = []
+        for pos, item in self.memoria.items():
+            if pos != indice:
+                item["forca"] *= (1.0 - self.decaimento)
+                if item["forca"] < FORCA_MINIMA:
+                    a_esquecer.append(pos)
+        for pos in a_esquecer:
+            del self.memoria[pos]
+        self.memoria[indice] = {"valor": valor_carta, "forca": FORCA_INICIAL, "recencia": self.turno}
+        while len(self.memoria) > self.capacidade:
+            mais_fraco = min(self.memoria, key=lambda p: self.memoria[p]["forca"])
+            del self.memoria[mais_fraco]
 
-        # Estratégia 3: Duas desconhecidas
+    def fazer_jogada(self, indices_disponiveis):
+        if len(indices_disponiveis) < 2:
+            return None, None
+        disponiveis = set(indices_disponiveis)
+        if random.random() < self.taxa_erro:
+            return tuple(random.sample(sorted(disponiveis), 2))
+        par_conhecido = self._buscar_par_na_memoria(disponiveis)
+        if par_conhecido:
+            return par_conhecido
+        conhecidas    = [p for p in disponiveis if p in self.memoria]
+        desconhecidas = [p for p in disponiveis if p not in self.memoria]
+        if conhecidas and desconhecidas:
+            return random.choice(conhecidas), random.choice(desconhecidas)
         if len(desconhecidas) >= 2:
-            return random.sample(desconhecidas, 2)
-        
-        # Estratégia 4: Duas aleatórias (último caso)
-        if len(indices_disponiveis) >= 2:
-            return random.sample(indices_disponiveis, 2)
-            
-        return None, None
+            return tuple(random.sample(desconhecidas, 2))
+        return tuple(random.sample(sorted(disponiveis), 2))
+
+    def _buscar_par_na_memoria(self, disponiveis):
+        grupos = {}
+        for pos, item in self.memoria.items():
+            if pos in disponiveis:
+                grupos.setdefault(item["valor"], []).append(pos)
+        pares = {v: p for v, p in grupos.items() if len(p) >= 2}
+        if not pares:
+            return None
+        melhor = max(pares, key=lambda v: sum(self.memoria[p]["forca"] for p in pares[v][:2]))
+        return pares[melhor][0], pares[melhor][1]
+
+    def notificar_par_encontrado(self, idx1, idx2, por_memoria=False):
+        self.memoria.pop(idx1, None)
+        self.memoria.pop(idx2, None)
+        if por_memoria:
+            self.pares_por_memoria += 1
+        else:
+            self.pares_por_acaso += 1
+
+    def resetar(self):
+        self.memoria = {}
+        self.turno   = 0
+        self.pares_por_memoria = 0
+        self.pares_por_acaso   = 0

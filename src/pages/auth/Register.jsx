@@ -1,49 +1,59 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { GraduationCap, BookOpen, Lock, Mail, User, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { GraduationCap, BookOpen, Lock, Mail, User, AlertCircle, Loader2, CheckCircle2, Check, Shield } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 const Register = () => {
-  const [role, setRole] = useState('aluno');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [error, setError] = useState(null);
+  const [role,         setRole]         = useState('aluno');
+  const [email,        setEmail]        = useState('');
+  const [password,     setPassword]     = useState('');
+  const [name,         setName]         = useState('');
+  const [error,        setError]        = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [isSuccess,    setIsSuccess]    = useState(false);
   const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user && !isSuccess) {
-      navigate('/');
-    }
+    if (user && !isSuccess) navigate('/');
   }, [user, isSuccess, navigate]);
+
+  // Força de senha
+  const passwordStrength = useMemo(() => {
+    if (!password) return { score: 0, label: '', color: '' };
+    let score = 0;
+    if (password.length >= 6) score += 1;
+    if (password.length >= 8) score += 1;
+    if (/[A-Z]/.test(password)) score += 1;
+    if (/[0-9]/.test(password) || /[^A-Za-z0-9]/.test(password)) score += 1;
+
+    if (score <= 1) return { score: 1, label: 'Fraca', color: 'bg-rose-500 text-rose-600' };
+    if (score === 2 || score === 3) return { score: 2, label: 'Média', color: 'bg-amber-500 text-amber-600' };
+    return { score: 3, label: 'Forte', color: 'bg-emerald-500 text-emerald-600' };
+  }, [password]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
-
     try {
-      // 1. Sign up user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: { name, role },
-        },
+        options: { data: { name, role } },
       });
-
       if (authError) throw authError;
-
       if (authData.user) {
         setIsSuccess(true);
-        setTimeout(() => navigate('/'), 3000);
+        showSuccess('Conta criada com sucesso! Redirecionando...');
+        setTimeout(() => navigate('/'), 2000);
       }
     } catch (err) {
       setError(err.message);
+      showError(err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -51,110 +61,168 @@ const Register = () => {
 
   if (isSuccess) {
     return (
-      <div className="max-w-md mx-auto mt-12 bg-slate-900 p-8 rounded-3xl shadow-xl border border-slate-800 text-center">
-        <div className="flex justify-center mb-6">
-          <CheckCircle2 size={64} className="text-emerald-500" />
+      <div className="flex items-center justify-center flex-1 py-4">
+        <div className="bg-white rounded-3xl shadow-xl border border-blue-100 p-8 text-center max-w-sm w-full animate-in zoom-in-95">
+          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 size={36} />
+          </div>
+          <h2 className="text-2xl font-black text-slate-800 mb-2">Conta Criada! 🎉</h2>
+          <p className="text-slate-500 mb-6 text-sm font-medium">
+            Seu cadastro foi realizado com sucesso. Você será redirecionado em instantes!
+          </p>
+          <button
+            onClick={() => navigate('/login')}
+            className="w-full btn-primary py-3"
+          >
+            Ir para Login Agora
+          </button>
         </div>
-        <h2 className="text-2xl font-bold text-slate-100 mb-2">Conta Criada!</h2>
-        <p className="text-slate-400 mb-6">
-          Seu cadastro foi realizado com sucesso. Você será redirecionado para o login em instantes.
-        </p>
-        <button 
-          onClick={() => navigate('/login')}
-          className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-500 transition-all"
-        >
-          Ir para Login
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-md mx-auto mt-12 bg-slate-900 p-8 rounded-3xl shadow-xl border border-slate-800 shadow-black/20">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-slate-100">Crie sua conta</h2>
-        <p className="text-slate-400">Junte-se à comunidade MemoryAgents</p>
-      </div>
-
-      {error && (
-        <div className="mb-6 p-4 bg-red-900/30 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-200 text-sm">
-          <AlertCircle size={18} className="text-red-500 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      <form onSubmit={handleRegister} className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            type="button"
-            onClick={() => setRole('aluno')}
-            className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${role === 'aluno' ? 'border-indigo-500 bg-indigo-900/30 text-indigo-400' : 'border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}
-          >
-            <BookOpen size={24} /> <span className="font-bold text-sm">Sou Aluno</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setRole('professor')}
-            className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${role === 'professor' ? 'border-indigo-500 bg-indigo-900/30 text-indigo-400' : 'border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}
-          >
-            <GraduationCap size={24} /> <span className="font-bold text-sm">Sou Professor</span>
-          </button>
+    <div className="flex items-center justify-center flex-1 py-2 overflow-y-auto scrollbar-thin">
+      <div className="w-full max-w-md my-auto">
+        {/* Logo & Header */}
+        <div className="text-center mb-4">
+          <div className="w-12 h-12 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-2 shadow-md shadow-blue-200 text-white">
+            🧠
+          </div>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight">Criar Conta Grátis</h1>
+          <p className="text-slate-500 font-medium text-xs mt-0.5">Junte-se ao MemoryAgents e jogue com IA</p>
         </div>
 
-        <div className="space-y-4">
-          <div className="relative">
-            <User className="absolute left-4 top-3.5 text-slate-500" size={18} />
-            <input 
-              type="text" 
-              placeholder="Nome completo" 
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-950 text-slate-200 placeholder:text-slate-600 rounded-xl border border-slate-800 focus:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
-              required 
-            />
-          </div>
-          <div className="relative">
-            <Mail className="absolute left-4 top-3.5 text-slate-500" size={18} />
-            <input 
-              type="email" 
-              placeholder="E-mail institucional" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-950 text-slate-200 placeholder:text-slate-600 rounded-xl border border-slate-800 focus:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
-              required 
-            />
-          </div>
-          <div className="relative">
-            <Lock className="absolute left-4 top-3.5 text-slate-500" size={18} />
-            <input 
-              type="password" 
-              placeholder="Crie uma senha" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-950 text-slate-200 placeholder:text-slate-600 rounded-xl border border-slate-800 focus:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
-              required 
-              minLength={6}
-            />
-          </div>
-        </div>
-
-        <button 
-          type="submit" 
-          disabled={isSubmitting}
-          className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-md hover:bg-indigo-500 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
-        >
-          {isSubmitting ? (
-            <><Loader2 className="animate-spin" size={20} /> Criando conta...</>
-          ) : (
-            'Criar Minha Conta'
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl shadow-blue-100/60 border border-blue-100 p-6">
+          {error && (
+            <div className="mb-4 p-3 bg-rose-50 border-2 border-rose-200 rounded-2xl flex items-center gap-2 text-rose-700 text-xs font-bold animate-in fade-in">
+              <AlertCircle size={16} className="shrink-0 text-rose-500" />
+              <span>{error}</span>
+            </div>
           )}
-        </button>
-      </form>
 
-      <div className="mt-8 text-center">
-        <p className="text-slate-500 text-sm">
-          Já tem uma conta? <Link to="/login" className="text-indigo-400 font-bold hover:text-indigo-300">Faça login</Link>
-        </p>
+          <form onSubmit={handleRegister} className="space-y-3.5">
+            {/* Seleção de papel com preenchimento claro */}
+            <div>
+              <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1.5 ml-1">
+                Você é:
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRole('aluno')}
+                  className={`p-3 rounded-2xl border-2 flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+                    role === 'aluno'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-xs'
+                      : 'border-slate-200 text-slate-400 hover:bg-slate-50'
+                  }`}
+                >
+                  <BookOpen size={20} className={role === 'aluno' ? 'text-blue-600' : 'text-slate-400'} />
+                  <span className="font-black text-sm">Aluno</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('professor')}
+                  className={`p-3 rounded-2xl border-2 flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+                    role === 'professor'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-xs'
+                      : 'border-slate-200 text-slate-400 hover:bg-slate-50'
+                  }`}
+                >
+                  <GraduationCap size={20} className={role === 'professor' ? 'text-indigo-600' : 'text-slate-400'} />
+                  <span className="font-black text-sm">Professor</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1 ml-1">
+                Nome completo
+              </label>
+              <div className="relative flex items-center">
+                <User className="absolute left-3.5 text-blue-500 pointer-events-none" size={18} />
+                <input
+                  type="text"
+                  placeholder="Ex: Maria Silva"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input-field input-with-icon"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1 ml-1">
+                E-mail
+              </label>
+              <div className="relative flex items-center">
+                <Mail className="absolute left-3.5 text-blue-500 pointer-events-none" size={18} />
+                <input
+                  type="email"
+                  placeholder="seu.email@escola.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input-field input-with-icon"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-1 ml-1">
+                <label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                  Senha
+                </label>
+                {password && (
+                  <span className={`text-[11px] font-bold ${passwordStrength.color.split(' ')[1]}`}>
+                    Força: {passwordStrength.label}
+                  </span>
+                )}
+              </div>
+              <div className="relative flex items-center">
+                <Lock className="absolute left-3.5 text-blue-500 pointer-events-none" size={18} />
+                <input
+                  type="password"
+                  placeholder="Crie uma senha (mín. 6 caracteres)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-field input-with-icon"
+                  required
+                  minLength={6}
+                />
+              </div>
+              {password && (
+                <div className="flex gap-1.5 mt-1.5 px-1">
+                  <div className={`h-1 flex-1 rounded-full transition-all duration-300 ${passwordStrength.score >= 1 ? passwordStrength.color.split(' ')[0] : 'bg-slate-200'}`} />
+                  <div className={`h-1 flex-1 rounded-full transition-all duration-300 ${passwordStrength.score >= 2 ? passwordStrength.color.split(' ')[0] : 'bg-slate-200'}`} />
+                  <div className={`h-1 flex-1 rounded-full transition-all duration-300 ${passwordStrength.score >= 3 ? passwordStrength.color.split(' ')[0] : 'bg-slate-200'}`} />
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full btn-primary py-3 text-sm flex justify-center items-center gap-2 mt-2"
+            >
+              {isSubmitting ? (
+                <><Loader2 className="animate-spin" size={18} /> Criando conta...</>
+              ) : (
+                '✨ Criar Minha Conta'
+              )}
+            </button>
+          </form>
+
+          <div className="mt-4 text-center border-t border-blue-50 pt-3">
+            <p className="text-slate-500 text-xs font-medium">
+              Já tem uma conta?{' '}
+              <Link to="/login" className="text-blue-600 font-black hover:text-blue-700 transition-colors underline-offset-2 hover:underline">
+                Faça login
+              </Link>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
