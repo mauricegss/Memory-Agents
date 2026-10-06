@@ -319,6 +319,7 @@ const TurmaView = () => {
                     title={game.title} 
                     author={professorName} 
                     completions={game.plays || 0} 
+                    imageUrl={game.thumbnail_url}
                     fallbackColor={i % 3 === 0 ? "bg-blue-500" : i % 3 === 1 ? "bg-indigo-500" : "bg-sky-500"} 
                     turmaId={turmaId}
                   />

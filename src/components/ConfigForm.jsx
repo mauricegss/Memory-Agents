@@ -1,17 +1,44 @@
 import React, { useState } from 'react';
-import { Zap, Type, Image as ImageIcon, PlaySquare, BoxSelect, Copy, Columns, ImageMinus, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Zap, Type, Image as ImageIcon, PlaySquare, BoxSelect, Copy, Columns, ImageMinus, AlertCircle, CheckCircle2, UploadCloud, Loader2, Trash2 } from 'lucide-react';
 import { MatchBuilder } from './config/MatchBuilder';
+import { compressImage } from '../utils/imageProcessor';
+import { uploadFileToStorage } from '../services/storageService';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 const MIN_PAIRS = 4;
 const MAX_PAIRS = 30;
 
-const ConfigForm = ({ onSubmit }) => {
-  const [title,      setTitle]      = useState('');
-  const [difficulty, setDifficulty] = useState('medium');
+const ConfigForm = ({ onSubmit, initialData = null, submitLabel = 'Finalizar e Gerar Jogo' }) => {
+  const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
+  const [title,      setTitle]      = useState(initialData?.title || '');
+  const [difficulty, setDifficulty] = useState(initialData?.difficulty || 'medium');
   const [gameType]                  = useState('memory_game');
-  const [matchType,  setMatchType]  = useState('image_image_same');
-  const [pairs,      setPairs]      = useState([]);
+  const [matchType,  setMatchType]  = useState(initialData?.matchType || 'image_image_same');
+  const [pairs,      setPairs]      = useState(initialData?.pairs || []);
   const [submitError, setSubmitError] = useState('');
+  const [coverUrl,     setCoverUrl]     = useState(initialData?.thumbnailUrl || null);
+  const [coverUploading, setCoverUploading] = useState(false);
+
+  const handleCoverChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !user) return;
+
+    setCoverUploading(true);
+    try {
+      const blob = await compressImage(file, 768, 0.85);
+      const url = await uploadFileToStorage(blob, 'memory-agents-thumbnails', user.id);
+      setCoverUrl(url);
+      showSuccess('Imagem de capa enviada com sucesso!');
+    } catch (err) {
+      console.error('[ConfigForm] Erro no upload da capa:', err);
+      showError('Não foi possível enviar a imagem: ' + (err.message || 'erro desconhecido'));
+    } finally {
+      setCoverUploading(false);
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -30,7 +57,7 @@ const ConfigForm = ({ onSubmit }) => {
       return;
     }
 
-    onSubmit({ title, gameType, matchType, difficulty, pairs, cardCount: pairs.length * 2 });
+    onSubmit({ title, gameType, matchType, difficulty, pairs, cardCount: pairs.length * 2, thumbnailUrl: coverUrl });
   };
 
   const handleMatchTypeChange = (newType) => {
@@ -72,6 +99,52 @@ const ConfigForm = ({ onSubmit }) => {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
+      </div>
+
+      {/* ─── Imagem de Capa ─── */}
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 font-black text-slate-700 text-sm uppercase tracking-wide">
+          <ImageIcon size={18} className="text-blue-500" /> Imagem de Capa
+          <span className="text-[10px] font-bold text-slate-400 normal-case tracking-normal">(opcional)</span>
+        </label>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <label className="group relative w-full sm:w-48 aspect-[4/3] shrink-0 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 overflow-hidden cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all flex items-center justify-center">
+            <input type="file" accept="image/*" className="hidden" onChange={handleCoverChange} disabled={coverUploading} />
+            {coverUploading ? (
+              <div className="flex flex-col items-center gap-2 text-blue-500">
+                <Loader2 size={26} className="animate-spin" />
+                <span className="text-[11px] font-black">Enviando...</span>
+              </div>
+            ) : coverUrl ? (
+              <>
+                <img src={coverUrl} alt="Capa do jogo" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-black">
+                  Alterar Imagem
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-1.5 text-blue-400 px-4 text-center">
+                <UploadCloud size={28} />
+                <span className="text-[11px] font-black leading-tight">Escolher imagem da capa</span>
+              </div>
+            )}
+          </label>
+
+          <div className="space-y-2">
+            <p className="text-xs text-slate-400 font-semibold leading-relaxed">
+              A capa aparece no lugar da letra na home e nos painéis. Sem imagem, usamos a inicial do título com a cor do jogo.
+            </p>
+            {coverUrl && (
+              <button
+                type="button"
+                onClick={() => setCoverUrl(null)}
+                className="inline-flex items-center gap-1.5 text-xs font-black text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl px-3 py-1.5 transition-colors cursor-pointer"
+              >
+                <Trash2 size={13} /> Remover capa
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ─── Opções gerais ─── */}
@@ -199,7 +272,7 @@ const ConfigForm = ({ onSubmit }) => {
         className="w-full btn-primary py-4 text-base flex items-center justify-center gap-2"
       >
         <PlaySquare size={22} />
-        Finalizar e Gerar Jogo
+        {submitLabel}
       </button>
     </form>
   );

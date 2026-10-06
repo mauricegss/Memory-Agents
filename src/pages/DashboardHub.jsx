@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import GameCard from '../components/GameCard';
 import GameShelf from '../components/GameShelf';
 import { supabase } from '../lib/supabase';
-import { Loader2, Library, Users, Sparkles, BookOpen } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const DashboardHub = () => {
@@ -80,34 +80,28 @@ const DashboardHub = () => {
   }
 
   return (
-    <div className="flex-1 overflow-auto scrollbar-thin space-y-6 min-h-0">
+    <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
       {/* Hero banner */}
       {user ? (
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 rounded-3xl p-6 sm:p-7 text-white shadow-lg shadow-blue-200/50 flex items-center justify-between relative overflow-hidden">
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-2 backdrop-blur-xs">
-              <Sparkles size={13} /> {user.role === 'professor' ? 'Painel do Educador' : 'Pronto para Aprender'}
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Olá, {user.name?.split(' ')[0]}! 👋</h2>
-            <p className="text-blue-100 text-xs sm:text-sm mt-1 max-w-md">Escolha um jogo abaixo para desafiar o robô inteligente e treinar sua memória.</p>
+        <div className="shrink-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 rounded-3xl px-5 py-3.5 text-white shadow-lg shadow-blue-200/50 flex items-center justify-between gap-4 relative overflow-hidden">
+          <div className="relative z-10 flex items-baseline gap-3 flex-wrap min-w-0">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight whitespace-nowrap">Olá, {user.name?.split(' ')[0]}! 👋</h2>
+            <p className="text-blue-100 text-xs sm:text-sm">Escolha um jogo abaixo para desafiar o robô inteligente e treinar sua memória.</p>
           </div>
-          <div className="text-5xl sm:text-6xl select-none hidden sm:block">🧠</div>
+          <div className="text-3xl sm:text-4xl select-none hidden sm:block shrink-0">🧠</div>
         </div>
       ) : (
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-blue-200/50 flex items-center justify-between relative overflow-hidden">
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-2 backdrop-blur-xs">
-              ✨ Bem-vindo ao MemoryAgents
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Jogos da Memória com IA Educacional</h2>
-            <p className="text-blue-100 text-xs sm:text-sm mt-1 max-w-md">Treine com adversários inteligentes heurísticos e probabilísticos.</p>
+        <div className="shrink-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 rounded-3xl px-5 py-3.5 text-white shadow-lg shadow-blue-200/50 flex items-center justify-between gap-4 relative overflow-hidden">
+          <div className="relative z-10 flex items-baseline gap-3 flex-wrap min-w-0">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight whitespace-nowrap">Jogos da Memória com IA Educacional</h2>
+            <p className="text-blue-100 text-xs sm:text-sm">Treine com adversários inteligentes heurísticos e probabilísticos.</p>
           </div>
-          <div className="text-5xl sm:text-6xl select-none hidden sm:block">🤖</div>
+          <div className="text-3xl sm:text-4xl select-none hidden sm:block shrink-0">🤖</div>
         </div>
       )}
 
       {recentGames.length === 0 ? (
-        <div className="bg-white border-2 border-dashed border-blue-200 rounded-3xl p-12 text-center shadow-xs">
+        <div className="shrink-0 bg-white border-2 border-dashed border-blue-200 rounded-3xl p-12 text-center shadow-xs">
           <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl">
             📚
           </div>
@@ -115,16 +109,18 @@ const DashboardHub = () => {
           <p className="text-slate-400 text-xs">Aguarde um professor criar jogos ou faça login como professor para adicionar novos desafios.</p>
         </div>
       ) : (
-        <>
+        <div className="flex-1 min-h-0 flex flex-col gap-4">
           <GameShelf title="⭐ Mais Jogados" icon={null}>
             {popularGames.map((game, i) => (
               <GameCard
+                fill
                 key={`pop-${game.id}`}
                 id={game.id}
                 title={game.title}
                 author={game.authorName}
                 authorId={game.author_id}
                 completions={game.plays || 0}
+                imageUrl={game.thumbnail_url}
                 fallbackColor={i % 3 === 0 ? 'bg-blue-500' : i % 3 === 1 ? 'bg-indigo-500' : 'bg-sky-500'}
               />
             ))}
@@ -134,12 +130,14 @@ const DashboardHub = () => {
             <GameShelf title="🏫 Atividades das Minhas Turmas">
               {turmaGames.map((game, i) => (
                 <GameCard
+                  fill
                   key={`turma-${game.id}`}
                   id={game.id}
                   title={game.title}
                   author={game.authorName}
                   authorId={game.author_id}
                   completions={game.plays || 0}
+                  imageUrl={game.thumbnail_url}
                   fallbackColor={i % 2 === 0 ? 'bg-emerald-500' : 'bg-teal-500'}
                 />
               ))}
@@ -149,17 +147,19 @@ const DashboardHub = () => {
           <GameShelf title="🆕 Adicionados Recentemente">
             {recentGames.map((game, i) => (
               <GameCard
+                fill
                 key={`rec-${game.id}`}
                 id={game.id}
                 title={game.title}
                 author={game.authorName}
                 authorId={game.author_id}
                 completions={game.plays || 0}
+                imageUrl={game.thumbnail_url}
                 fallbackColor={i % 3 === 0 ? 'bg-cyan-500' : i % 3 === 1 ? 'bg-blue-400' : 'bg-violet-500'}
               />
             ))}
           </GameShelf>
-        </>
+        </div>
       )}
     </div>
   );

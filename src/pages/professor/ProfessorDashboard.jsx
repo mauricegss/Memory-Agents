@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Users, Library, BarChart3, Settings, Copy, Check, X, Loader2, Sparkles, GraduationCap, Gamepad2, ArrowRight, Trash2, Edit3, Dices } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -11,6 +11,7 @@ import GameCard from '../../components/GameCard';
 const ProfessorDashboard = () => {
   const { user } = useAuth();
   const { showSuccess, showError, showInfo } = useToast();
+  const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState('turmas'); // 'turmas' | 'jogos'
   const [turmas, setTurmas] = useState([]);
@@ -24,18 +25,13 @@ const ProfessorDashboard = () => {
   const [turmaToDelete, setTurmaToDelete] = useState(null);
 
   useEffect(() => {
-    if (user) {
-      if (activeTab === 'turmas') {
-         fetchTurmas();
-      } else {
-         fetchMyGames();
-      }
-    }
-  }, [user, activeTab]);
+    if (!user) return;
+    setLoading(true);
+    Promise.all([fetchTurmas(), fetchMyGames()]).finally(() => setLoading(false));
+  }, [user]);
 
   const fetchTurmas = async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from('memory_agents_turmas')
         .select('*')
@@ -66,14 +62,11 @@ const ProfessorDashboard = () => {
     } catch (error) {
       console.error('Error fetching turmas:', error.message);
       setTurmas([]);
-    } finally {
-      setLoading(false);
     }
   };
 
   const fetchMyGames = async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from('memory_agents_games')
         .select('*')
@@ -85,8 +78,6 @@ const ProfessorDashboard = () => {
     } catch (error) {
       console.error('Error fetching games:', error.message);
       setMyGames([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -366,7 +357,9 @@ const ProfessorDashboard = () => {
                   author={user.name || 'Você'}
                   authorId={user.id}
                   completions={game.plays || 0}
+                  imageUrl={game.thumbnail_url}
                   fallbackColor={i % 3 === 0 ? 'bg-blue-500' : i % 3 === 1 ? 'bg-indigo-500' : 'bg-sky-500'}
+                  onEdit={() => navigate(`/professor/jogo/${game.id}/editar`)}
                 />
               ))}
             </div>

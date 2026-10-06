@@ -11,15 +11,15 @@ const GameShelf = ({ title, children, icon }) => {
   };
 
   return (
-    <section className="space-y-2 relative group/shelf">
-      <div className="flex items-center justify-between px-1">
+    <section className="flex flex-col gap-2 min-h-0 flex-1 relative group/shelf">
+      <div className="flex items-center justify-between px-1 shrink-0">
         <div className="flex items-center gap-2">
           {icon && <span>{icon}</span>}
           <h3 className="text-lg font-black text-slate-700">{title}</h3>
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative flex-1 min-h-0">
         <button
           onClick={() => scroll(-1)}
           className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 bg-white shadow-lg p-2 rounded-full border-2 border-blue-100 text-blue-500 opacity-0 group-hover/shelf:opacity-100 transition-all hover:bg-blue-50 hover:scale-110 hidden md:block"
@@ -29,7 +29,7 @@ const GameShelf = ({ title, children, icon }) => {
 
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto pb-2 pt-1 scrollbar-hide px-1 snap-x snap-mandatory"
+          className="flex gap-4 h-full items-stretch overflow-x-auto pb-2 pt-1 scrollbar-hide px-1 snap-x snap-mandatory"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {children}

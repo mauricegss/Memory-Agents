@@ -23,7 +23,8 @@ const Configurator = () => {
           author_id: user.id,
           match_type: configData.matchType,
           difficulty: configData.difficulty,
-          card_count: configData.cardCount
+          card_count: configData.cardCount,
+          thumbnail_url: configData.thumbnailUrl || null
         }
       ]).select().single();
 
