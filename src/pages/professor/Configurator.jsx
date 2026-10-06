@@ -42,11 +42,19 @@ const Configurator = () => {
       const { error: cardsError } = await supabase.from('memory_agents_cards').insert(cardsToInsert);
       if (cardsError) throw cardsError;
 
+      // Determine AI parameters based on difficulty
+      let capacity = 4, decay = 0.15, mistake = 0.12;
+      if (configData.difficulty === 'easy') { capacity = 2; decay = 0.35; mistake = 0.30; }
+      else if (configData.difficulty === 'hard') { capacity = 12; decay = 0.03; mistake = 0.03; }
+
       // Default AI Config
       const { error: aiError } = await supabase.from('memory_agents_ai_configs').insert([
         {
           game_id: gameData.id,
-          ai_type: 'heuristic'
+          ai_type: 'heuristic',
+          memory_capacity: capacity,
+          memory_decay_rate: decay,
+          mistake_rate: mistake
         }
       ]);
       if (aiError) throw aiError;

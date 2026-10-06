@@ -34,7 +34,7 @@ const GameReports = () => {
         const { data, error } = await supabase
           .from('memory_agents_matches')
           .select(`
-            id, player_score, player_flips, total_time_seconds, created_at,
+            id, player_score, player_flips, ai_score, ai_flips, winner, total_time_seconds, created_at,
             memory_agents_profiles (name),
             memory_agents_games (title)
           `)
@@ -51,7 +51,7 @@ const GameReports = () => {
            const { data, error } = await supabase
             .from('memory_agents_matches')
             .select(`
-              id, player_score, player_flips, total_time_seconds, created_at, turma_id,
+              id, player_score, player_flips, ai_score, ai_flips, winner, total_time_seconds, created_at, turma_id,
               memory_agents_profiles (name),
               memory_agents_games (title)
             `)
@@ -147,8 +147,9 @@ const GameReports = () => {
                    <th className="p-4">Atividade / Jogo</th>
                    <th className="p-4">Data / Hora</th>
                    <th className="p-4 text-center">Tempo</th>
-                   <th className="p-4 text-center">Pares Acertados</th>
-                   <th className="p-4 text-center">Erros</th>
+                   <th className="p-4 text-center">Placar (Aluno x IA)</th>
+                   <th className="p-4 text-center">Erros (Aluno x IA)</th>
+                   <th className="p-4 text-center">Vencedor</th>
                  </tr>
                </thead>
                <tbody className="divide-y divide-blue-50 text-xs font-semibold text-slate-700">
@@ -166,14 +167,35 @@ const GameReports = () => {
                        </span>
                      </td>
                      <td className="p-4 text-center">
-                       <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 font-black px-2.5 py-1 rounded-lg border border-emerald-200/60">
-                         <CheckCircle2 size={13} className="text-emerald-500" /> {s.player_score}
-                       </span>
+                       <div className="flex items-center justify-center gap-2">
+                         <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 font-black px-2 py-1 rounded border border-emerald-200/60" title="Pares do Aluno">
+                           {s.player_score}
+                         </span>
+                         <span className="text-slate-300 font-bold">x</span>
+                         <span className="inline-flex items-center gap-1 bg-slate-50 text-slate-700 font-black px-2 py-1 rounded border border-slate-200/60" title="Pares da IA">
+                           {s.ai_score}
+                         </span>
+                       </div>
                      </td>
                      <td className="p-4 text-center">
-                       <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 font-black px-2.5 py-1 rounded-lg border border-rose-200/60">
-                         <XCircle size={13} className="text-rose-500" /> {Math.max(0, s.player_flips - s.player_score)}
-                       </span>
+                       <div className="flex items-center justify-center gap-2">
+                         <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 font-black px-2 py-1 rounded border border-rose-200/60" title="Erros do Aluno">
+                           {Math.max(0, s.player_flips - s.player_score)}
+                         </span>
+                         <span className="text-slate-300 font-bold">x</span>
+                         <span className="inline-flex items-center gap-1 bg-slate-50 text-slate-700 font-black px-2 py-1 rounded border border-slate-200/60" title="Erros da IA">
+                           {Math.max(0, s.ai_flips - s.ai_score)}
+                         </span>
+                       </div>
+                     </td>
+                     <td className="p-4 text-center">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black border ${
+                          s.winner === 'player' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60' :
+                          s.winner === 'ai' ? 'bg-rose-50 text-rose-700 border-rose-200/60' :
+                          'bg-amber-50 text-amber-700 border-amber-200/60'
+                        }`}>
+                          {s.winner === 'player' ? 'Aluno' : s.winner === 'ai' ? 'IA' : 'Empate'}
+                        </span>
                      </td>
                    </tr>
                  ))}

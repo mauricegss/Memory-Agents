@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "db:push": "node scripts/db-push.js",
-    "test:ai": "node scripts/test-ai.mjs"
+    "test:ai": "node scripts/test-ai.mjs",
+    "test:structure": "node scripts/test-structure.mjs",
+    "test:e2e": "node testSupabase.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",

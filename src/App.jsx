@@ -47,7 +47,7 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="bg-white/90 backdrop-blur-md border-b border-blue-100/80 px-4 sm:px-6 py-3 flex justify-between items-center shadow-xs flex-shrink-0 z-30">
+      <nav className="bg-white/90 backdrop-blur-md border-b border-blue-100/80 px-4 sm:px-6 py-3 flex justify-between items-center shadow-xs flex-shrink-0 z-50">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 group">
           <div className="bg-gradient-to-tr from-blue-600 to-indigo-500 w-10 h-10 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md shadow-blue-200 group-hover:scale-105 transition-transform">

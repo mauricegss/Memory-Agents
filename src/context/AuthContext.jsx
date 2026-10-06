@@ -7,8 +7,11 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (userId) => {
+  const fetchProfile = useCallback(async (sessionUser) => {
     try {
+      const userId = sessionUser?.id;
+      if (!userId) return null;
+
       const { data, error } = await supabase
         .from('memory_agents_profiles')
         .select('*')
@@ -16,7 +19,22 @@ export const AuthProvider = ({ children }) => {
         .maybeSingle();
 
       if (error) return null;
-      return data;
+      if (data) return data;
+
+      // Auto-heal: contas criadas antes do trigger de perfis não têm linha em
+      // memory_agents_profiles, o que quebra as policies que usam EXISTS(...).
+      const meta = sessionUser.user_metadata || {};
+      const role = ['aluno', 'professor'].includes(meta.role) ? meta.role : 'aluno';
+      const name = meta.name || (sessionUser.email || 'Usuário').split('@')[0];
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('memory_agents_profiles')
+        .insert({ id: userId, name, email: sessionUser.email || '', role })
+        .select()
+        .maybeSingle();
+
+      if (insertError) return null;
+      return inserted;
     } catch {
       return null;
     }
@@ -51,7 +69,7 @@ export const AuthProvider = ({ children }) => {
           console.log('[Auth] Sessão encontrada, buscando perfil...');
           setUser(buildUserFromSession(session)); // Fallback imediato
           
-          const profile = await fetchProfile(session.user.id);
+          const profile = await fetchProfile(session.user);
           if (isMounted && profile) {
             setUser(profile);
           }
@@ -118,7 +136,7 @@ export const AuthProvider = ({ children }) => {
     // Atualiza o estado global manualmente já que removemos o onAuthStateChange
     if (data?.session) {
       setUser(buildUserFromSession(data.session));
-      const profile = await fetchProfile(data.session.user.id);
+      const profile = await fetchProfile(data.session.user);
       if (profile) setUser(profile);
     }
     

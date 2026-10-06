@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Users, Library, BarChart3, Settings, Copy, Check, X, Loader2, Sparkles, GraduationCap, Gamepad2, ArrowRight, Trash2, Edit3, Dices } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -9,7 +9,6 @@ import GameCard from '../../components/GameCard';
 /* eslint-disable react-hooks/exhaustive-deps */
 
 const ProfessorDashboard = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { showSuccess, showError, showInfo } = useToast();
   

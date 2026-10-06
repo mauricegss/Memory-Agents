@@ -539,6 +539,27 @@ CREATE TRIGGER trg_memory_agents_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.memory_agents_handle_new_user();
 
+-- Backfill idempotente: contas criadas antes do trigger existir não têm
+-- linha em memory_agents_profiles, o que faz as policies com EXISTS(...) falhar.
+DO $$
+BEGIN
+  INSERT INTO public.memory_agents_profiles (id, name, email, role)
+  SELECT
+    u.id,
+    COALESCE(u.raw_user_meta_data->>'name', split_part(u.email, '@', 1)),
+    u.email,
+    CASE
+      WHEN u.raw_user_meta_data->>'role' IN ('aluno', 'professor')
+        THEN u.raw_user_meta_data->>'role'
+      ELSE 'aluno'
+    END
+  FROM auth.users u
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.memory_agents_profiles p WHERE p.id = u.id
+  )
+  ON CONFLICT (id) DO NOTHING;
+END $$;
+
 -- 4.2 Trigger para incrementar plays ao finalizar partida
 CREATE OR REPLACE FUNCTION memory_agents_increment_plays()
 RETURNS TRIGGER AS $$
